@@ -1,0 +1,68 @@
+# =============================================================================
+# Domain: attendance
+# Entity: Attendance
+# Description: One employee's presence on one date. At most one record per
+#              (employee, date). Carries schedule/timeoff snapshots, NOT a
+#              status enum — interpretation (absent? on_leave? holiday?) is
+#              computed by the consumer (payroll), not stored here.
+# =============================================================================
+
+models:
+  - name: Attendance
+    collection: attendances
+    description: "An employee's presence on a date (one per employee per day). Carries schedule/timeoff snapshots, not a status enum."
+
+    fields:
+      id:
+        type: uuid
+        attributes: ["@id", "@default(uuid)"]
+        description: "Unique record id"
+
+      company_id:
+        type: uuid
+        attributes: ["@required", "@exclude_from_foreign_key_check"]
+        description: "Org owner # logical FK organization.Company.id"
+
+      employee_id:
+        type: uuid
+        attributes: ["@required", "@exclude_from_foreign_key_check"]
+        description: "The employee # logical FK employee.Employee.id"
+
+      date:
+        type: date
+        attributes: ["@required"]
+        description: "The attendance date"
+
+      schedule:
+        type: json?
+        description: "Snapshot: { schedule_type: schedule|calendar|timeoff, shift, ... } resolved at write time"
+
+      clockin:
+        type: time?
+        description: "First clock-in"
+
+      clockout:
+        type: time?
+        description: "Last clock-out"
+
+      time_debt:
+        type: json?
+        description: "Computed shortfall/overtime vs planned shift"
+
+      timeoff:
+        type: json?
+        description: "Snapshot of applicable approved timeoff(s) for the day"
+
+      metadata:
+        type: Metadata
+        attributes: ["@audit_metadata"]
+        description: "Audit metadata"
+
+    indexes:
+      # One presence per employee per day (partial — only among live rows).
+      - type: unique
+        fields: [company_id, employee_id, date]
+        where: "deleted_at IS NULL"
+        description: "One presence per employee per day"
+      - type: index
+        fields: [company_id, date]

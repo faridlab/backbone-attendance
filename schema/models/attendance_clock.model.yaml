@@ -1,0 +1,54 @@
+# =============================================================================
+# Domain: attendance
+# Entity: AttendanceClock
+# Description: Raw clock events (in/out punches) — multiple per attendance.
+#              attendance_id is an in-module FK to Attendance.id; company_id /
+#              employee_id are cross-module logical FKs (no DB constraint).
+# =============================================================================
+
+models:
+  - name: AttendanceClock
+    collection: attendance_clocks
+    description: "Raw clock events (in/out punches) — multiple per attendance."
+
+    fields:
+      id:
+        type: uuid
+        attributes: ["@id", "@default(uuid)"]
+        description: "Unique record id"
+
+      company_id:
+        type: uuid
+        attributes: ["@required", "@exclude_from_foreign_key_check"]
+        description: "Org owner # logical FK organization.Company.id"
+
+      attendance_id:
+        type: uuid
+        attributes: ["@required", "@foreign_key(Attendance.id)"]
+        description: "The attendance row # FK attendances.id (in-module)"
+
+      employee_id:
+        type: uuid
+        attributes: ["@required", "@exclude_from_foreign_key_check"]
+        description: "The employee # logical FK employee.Employee.id"
+
+      date:
+        type: date
+        attributes: ["@required"]
+        description: "The clock event date"
+
+      clock:
+        type: time
+        attributes: ["@required"]
+        description: "Punch time"
+
+      metadata:
+        type: Metadata
+        attributes: ["@audit_metadata"]
+        description: "Audit metadata"
+
+    indexes:
+      - type: index
+        fields: [attendance_id]
+      - type: index
+        fields: [employee_id, date]
