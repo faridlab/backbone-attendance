@@ -34,9 +34,23 @@ pub use infrastructure::persistence::*;
 // Re-exports - Application services
 pub use application::service::AttendanceService;
 pub use application::service::AttendanceClockService;
+pub use application::service::AttendanceSessionService;
+pub use application::service::KioskPinService;
 
 // Re-exports - Workflows
 pub use application::workflows::*;
+
+// <<< CUSTOM
+// The validated write path (punch/session/kiosk-PIN — H-3) and its guarded HTTP composition,
+// plus `company_scope` re-exported for the RLS probe suite (tests/ can only see the public
+// surface, mirroring backbone-party's convention).
+pub use application::service::{
+    validate_punch_time,
+    lockout_until, pin_is_wellformed, AttendanceWriteError, AttendanceWriteService, PunchOutcome,
+};
+pub use presentation::http::create_guarded_attendance_routes;
+pub use backbone_orm::company_scope;
+// END CUSTOM
 
 use std::sync::Arc;
 use axum::Router;
@@ -65,6 +79,13 @@ pub struct AttendanceModule {
     pub(crate) attendance_repository: Arc<AttendanceRepository>,
     pub(crate) db_pool: sqlx::PgPool,
     // END CUSTOM
+    pub(crate) attendance_session_service: Arc<AttendanceSessionService>,
+    pub(crate) kiosk_pin_service: Arc<KioskPinService>,
+    // <<< CUSTOM FIELDS
+    /// Validated punch/session/kiosk-PIN writes (EXCLUDE-overlap mapping, Tier B PIN policy,
+    /// immutable clock events, daily rollup upsert). The guarded routes compose off this.
+    pub attendance_write_service: Arc<AttendanceWriteService>,
+    // END CUSTOM
 }
 
 impl AttendanceModule {
@@ -82,11 +103,15 @@ impl AttendanceModule {
         use presentation::http::{
             create_attendance_routes,
             create_attendance_clock_routes,
+            create_attendance_session_routes,
+            create_kiosk_pin_routes,
         };
 
         Router::new()
             .merge(create_attendance_routes(self.attendance_service.clone()))
             .merge(create_attendance_clock_routes(self.attendance_clock_service.clone()))
+            .merge(create_attendance_session_routes(self.attendance_session_service.clone()))
+            .merge(create_kiosk_pin_routes(self.kiosk_pin_service.clone()))
     }
 
     /// Deprecated alias for [`Self::all_crud_routes`]. `routes()` reads like
@@ -94,10 +119,33 @@ impl AttendanceModule {
     /// mount exposes unguarded writes. Compose a guarded router (read + validated
     /// writes) for production, or call `all_crud_routes()` to opt into the full
     /// unguarded surface explicitly.
-    #[deprecated(note = "mounts unvalidated generic CRUD on every entity; compose a guarded router for production, or call all_crud_routes() for the intentional full/unguarded surface")]
+    #[deprecated(note = "mounts unvalidated generic CRUD; prefer readonly_routes() + validated writes, or all_crud_routes() for the full/unguarded surface")]
     pub fn routes(&self) -> Router {
         self.all_crud_routes()
     }
+
+    /// Read-only routes for every entity (GET endpoints only) — the safe base.
+    ///
+    /// Generic mutation can't reach here, so this surface cannot bypass a
+    /// validated write service's invariants. Use this as the production base and
+    /// merge validated write routes (or a write service's HTTP layer) onto it.
+    pub fn readonly_routes(&self) -> Router {
+        use presentation::http::{
+            create_attendance_read_routes,
+            create_attendance_clock_read_routes,
+            create_attendance_session_read_routes,
+            create_kiosk_pin_read_routes,
+        };
+
+        Router::new()
+            .merge(create_attendance_read_routes(self.attendance_service.clone()))
+            .merge(create_attendance_clock_read_routes(self.attendance_clock_service.clone()))
+            .merge(create_attendance_session_read_routes(self.attendance_session_service.clone()))
+            .merge(create_kiosk_pin_read_routes(self.kiosk_pin_service.clone()))
+    }
+
+    // <<< CUSTOM METHODS
+    // END CUSTOM
 }
 
 /// Builder for AttendanceModule
@@ -135,9 +183,16 @@ impl AttendanceModuleBuilder {
         let attendance_clock_repository = Arc::new(AttendanceClockRepository::new(db_pool.clone()));
         let attendance_clock_service = Arc::new(AttendanceClockService::with_repository(attendance_clock_repository.clone()));
 
+        // AttendanceSession service
+        let attendance_session_repository = Arc::new(AttendanceSessionRepository::new(db_pool.clone()));
+        let attendance_session_service = Arc::new(AttendanceSessionService::with_repository(attendance_session_repository.clone()));
+
+        // KioskPin service
+        let kiosk_pin_repository = Arc::new(KioskPinRepository::new(db_pool.clone()));
+        let kiosk_pin_service = Arc::new(KioskPinService::with_repository(kiosk_pin_repository.clone()));
+
         // <<< CUSTOM
-        // Retain the attendance repo + pool on the module so the `AttendanceQueryService` impl can
-        // delegate `present_days` (custom SQL on the repo) and supply the pool the repo method takes.
+        let attendance_write_service = Arc::new(AttendanceWriteService::new(db_pool.clone()));
         // END CUSTOM
 
         Ok(AttendanceModule {
@@ -146,6 +201,11 @@ impl AttendanceModuleBuilder {
             // <<< CUSTOM
             attendance_repository: attendance_repository.clone(),
             db_pool,
+            // END CUSTOM
+            attendance_session_service,
+            kiosk_pin_service,
+            // <<< CUSTOM
+            attendance_write_service,
             // END CUSTOM
         })
     }

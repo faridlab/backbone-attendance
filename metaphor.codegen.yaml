@@ -22,6 +22,16 @@ user_owned:
   # Hand-written `AttendanceQueryService` impl (delegates standard lookups to GenericCrudService +
   # `present_days` to the repo). User-owned so the impl survives regen.
   - "src/application/service/attendance_query_service.rs"
+  # The validated write path (H-3): punch in/out with auto-direction, kiosk Tier B PIN policy
+  # (argon2id + escalating lockout, ADR-0018), session corrections with mandatory reason,
+  # EXCLUDE-overlap 23P01 → 409 mapping, daily rollup upsert.
+  - "src/application/service/attendance_write_service.rs"
+  # All hand-written write SQL for that service (sessions, immutable clock events, kiosk PINs,
+  # rollup upsert) — transaction-scoped `&mut PgConnection` methods, company bound by the service.
+  - "src/infrastructure/persistence/attendance_write_repository.rs"
+  # Guarded composition: validated writes + entity reads (attendance/clock/session only —
+  # kiosk_pin reads are deliberately NOT mounted; hashes never leave via a generic GET).
+  - "src/presentation/http/guarded_routes.rs"
   # Hand-authored behavior (services + their HTTP surface). Examples:
   # - "src/application/service/onboarding_service.rs"
   # - "src/presentation/http/guarded_routes.rs"
@@ -29,7 +39,10 @@ user_owned:
   # Behavior tests (the golden cases / oracle) + BDD features.
   - "tests/features/**"
   # - "tests/*_golden_cases.rs"
-  # - "tests/integrity_probes.rs"
+  # Route-level integrity probes (W1 P2): real company_auth + HS256 token, oneshot router,
+  # RLS-fenced assertion reads via with_company_scope. Covers kiosk PIN policy end-to-end,
+  # EXCLUDE overlap → 409, rollup/clock-event writes, cross-company fence, unauthenticated 401.
+  - "tests/integrity_probes.rs"
 
   # Hand-authored module documentation.
   - "docs/**"

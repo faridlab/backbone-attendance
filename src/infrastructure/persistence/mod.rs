@@ -6,14 +6,20 @@
 
 mod attendance_repository;
 mod attendance_clock_repository;
+mod attendance_session_repository;
+mod kiosk_pin_repository;
 
 // Custom persistence modules
 // <<< CUSTOM
+// Hand-written write SQL for the punch / session / kiosk-PIN flows (user-owned file).
+mod attendance_write_repository;
 // END CUSTOM
 
 // Re-exports
 pub use attendance_repository::AttendanceRepository;
 pub use attendance_clock_repository::AttendanceClockRepository;
+pub use attendance_session_repository::AttendanceSessionRepository;
+pub use kiosk_pin_repository::KioskPinRepository;
 
 // Re-export backbone-orm types
 pub use backbone_orm::repository::{
@@ -24,4 +30,5 @@ pub use backbone_orm::repository::{
 
 // Re-export custom persistence types
 // <<< CUSTOM
+pub use attendance_write_repository::{AttendanceWriteRepository, PinRow, SessionRow};
 // END CUSTOM

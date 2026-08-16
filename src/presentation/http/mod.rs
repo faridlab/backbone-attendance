@@ -7,12 +7,20 @@
 
 pub mod attendance_handler;
 pub mod attendance_clock_handler;
+pub mod attendance_session_handler;
+pub mod kiosk_pin_handler;
 
 // <<< CUSTOM
+// Guarded composition (user-owned file): validated writes + safe reads, no generic mutation,
+// no kiosk_pin reads (PIN hashes never leave the module via a generic GET).
+pub mod guarded_routes;
 // END CUSTOM
 
 // Re-exports
 pub use attendance_handler::{create_attendance_routes, create_attendance_read_routes, create_attendance_write_routes};
 pub use attendance_clock_handler::{create_attendance_clock_routes, create_attendance_clock_read_routes, create_attendance_clock_write_routes};
+pub use attendance_session_handler::{create_attendance_session_routes, create_attendance_session_read_routes, create_attendance_session_write_routes};
+pub use kiosk_pin_handler::{create_kiosk_pin_routes, create_kiosk_pin_read_routes, create_kiosk_pin_write_routes};
 // <<< CUSTOM
+pub use guarded_routes::create_guarded_attendance_routes;
 // END CUSTOM

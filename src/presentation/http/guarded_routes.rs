@@ -1,0 +1,270 @@
+//! Guarded route composition — the RECOMMENDED way to mount the attendance module.
+//!
+//! Hand-authored (user-owned; see `metaphor.codegen.yaml`). Closes the CRUD-bypass: the generated
+//! 12-endpoint CRUD surface writes rows with no domain validation and (for kiosk_pins) would even
+//! expose PHC hashes over generic GETs. Here:
+//!
+//! - **Reads**: attendance / clock / session GETs only — and deliberately NOT kiosk_pin reads.
+//!   PIN hashes and failure counters are never served; the only kiosk_pin surface is the admin
+//!   management verbs below, which return ids/204s, never hashes.
+//! - **Writes**: every mutation goes through [`AttendanceWriteService`], which owns the punch
+//!   invariants (EXCLUDE-overlap mapping, immutable clock events, rollup upsert), the Tier B PIN
+//!   policy (argon2id verify, escalating lockout — ADR-0018), and mandatory correction reasons.
+//!
+//! The tenant comes from the [`CompanyContext`] the `company_auth` middleware inserts — never
+//! from the body. The kiosk device authenticates with the company bearer (Tier A) at the host;
+//! the badge+PIN typed at the terminal is the human's Tier B factor handled inside the service.
+
+use std::str::FromStr;
+use std::sync::Arc;
+
+use axum::{
+    extract::{Path, State},
+    http::StatusCode,
+    response::IntoResponse,
+    routing::{delete, post},
+    Json, Router,
+};
+use backbone_auth::company::CompanyContext;
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+
+use crate::application::service::attendance_write_service::{
+    AttendanceWriteError, AttendanceWriteService, PunchOutcome,
+};
+use crate::domain::entity::{PunchDirection, PunchSource};
+use crate::AttendanceModule;
+
+use super::{
+    create_attendance_clock_read_routes, create_attendance_read_routes,
+    create_attendance_session_read_routes,
+};
+
+#[derive(Debug, Serialize)]
+struct ErrorBody {
+    error: &'static str,
+    message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    retry_after_seconds: Option<i64>,
+}
+
+#[derive(Debug, Serialize)]
+struct IdResponse {
+    id: Uuid,
+}
+
+fn err_response(e: AttendanceWriteError) -> axum::response::Response {
+    let status = StatusCode::from_u16(e.http_status()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+    let retry_after_seconds = match &e {
+        AttendanceWriteError::PinLocked { retry_after } => Some(retry_after.num_seconds().max(0)),
+        _ => None,
+    };
+    (
+        status,
+        Json(ErrorBody {
+            error: e.code(),
+            message: e.to_string(),
+            retry_after_seconds,
+        }),
+    )
+        .into_response()
+}
+
+fn punch_response(outcome: PunchOutcome) -> axum::response::Response {
+    (StatusCode::OK, Json(outcome)).into_response()
+}
+
+// ── request bodies ─────────────────────────────────────────────────────────────
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct KioskPunchBody {
+    badge_code: String,
+    pin: String,
+    /// Server-stamped unless the terminal supplies its trusted clock. Future-dated beyond
+    /// the skew allowance is refused (422 `future_punch`); backdated beyond it is refused too —
+    /// the kiosk body carries no correction reason, so backdating goes through the admin punch
+    /// (with a reason) or `correct_session`.
+    #[serde(default)]
+    at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PunchBody {
+    employee_id: Uuid,
+    direction: String, // "in" | "out" — validated into the domain enum below
+    #[serde(default)]
+    at: Option<DateTime<Utc>>,
+    /// Required when `at` backdates a punch (admin corrections at punch time).
+    #[serde(default)]
+    correction_reason: Option<String>,
+    #[serde(default)]
+    source: Option<String>, // "kiosk" | "self_service" | "admin"; default "admin"
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CorrectSessionBody {
+    check_in: DateTime<Utc>,
+    check_out: Option<DateTime<Utc>>,
+    reason: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct IssuePinBody {
+    employee_id: Uuid,
+    badge_code: String,
+    pin: String,
+    #[serde(default)]
+    expires_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct EmployeePinBody {
+    employee_id: Uuid,
+    pin: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct EmployeeBody {
+    employee_id: Uuid,
+}
+
+// ── handlers ───────────────────────────────────────────────────────────────────
+
+async fn kiosk_punch(
+    State(svc): State<Arc<AttendanceWriteService>>,
+    tenant: CompanyContext,
+    Json(b): Json<KioskPunchBody>,
+) -> axum::response::Response {
+    match svc
+        .kiosk_punch(tenant.company_id, &b.badge_code, &b.pin, b.at)
+        .await
+    {
+        Ok(outcome) => punch_response(outcome),
+        Err(e) => err_response(e),
+    }
+}
+
+async fn punch(
+    State(svc): State<Arc<AttendanceWriteService>>,
+    tenant: CompanyContext,
+    Json(b): Json<PunchBody>,
+) -> axum::response::Response {
+    let direction = match PunchDirection::from_str(&b.direction) {
+        Ok(d) => d,
+        Err(_) => return err_response(AttendanceWriteError::BadDirection),
+    };
+    let source = match b.source.as_deref() {
+        None => PunchSource::Admin,
+        Some("kiosk") => PunchSource::Kiosk,
+        Some("self_service") => PunchSource::SelfService,
+        Some("admin") => PunchSource::Admin,
+        Some(_) => return err_response(AttendanceWriteError::BadDirection),
+    };
+    match svc
+        .punch(
+            tenant.company_id,
+            b.employee_id,
+            direction,
+            source,
+            b.at,
+            b.correction_reason.as_deref(),
+        )
+        .await
+    {
+        Ok(outcome) => punch_response(outcome),
+        Err(e) => err_response(e),
+    }
+}
+
+async fn correct_session(
+    State(svc): State<Arc<AttendanceWriteService>>,
+    tenant: CompanyContext,
+    Path(session_id): Path<Uuid>,
+    Json(b): Json<CorrectSessionBody>,
+) -> axum::response::Response {
+    match svc
+        .correct_session(tenant.company_id, session_id, b.check_in, b.check_out, &b.reason)
+        .await
+    {
+        Ok(outcome) => punch_response(outcome),
+        Err(e) => err_response(e),
+    }
+}
+
+async fn issue_pin(
+    State(svc): State<Arc<AttendanceWriteService>>,
+    tenant: CompanyContext,
+    Json(b): Json<IssuePinBody>,
+) -> axum::response::Response {
+    match svc
+        .issue_pin(tenant.company_id, b.employee_id, &b.badge_code, &b.pin, b.expires_at)
+        .await
+    {
+        Ok(id) => (StatusCode::CREATED, Json(IdResponse { id })).into_response(),
+        Err(e) => err_response(e),
+    }
+}
+
+async fn rotate_pin(
+    State(svc): State<Arc<AttendanceWriteService>>,
+    tenant: CompanyContext,
+    Json(b): Json<EmployeePinBody>,
+) -> axum::response::Response {
+    match svc.rotate_pin(tenant.company_id, b.employee_id, &b.pin).await {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(e) => err_response(e),
+    }
+}
+
+async fn unlock_pin(
+    State(svc): State<Arc<AttendanceWriteService>>,
+    tenant: CompanyContext,
+    Json(b): Json<EmployeeBody>,
+) -> axum::response::Response {
+    match svc.unlock_pin(tenant.company_id, b.employee_id).await {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(e) => err_response(e),
+    }
+}
+
+async fn revoke_pin(
+    State(svc): State<Arc<AttendanceWriteService>>,
+    tenant: CompanyContext,
+    Path(employee_id): Path<Uuid>,
+) -> axum::response::Response {
+    match svc.revoke_pin(tenant.company_id, employee_id).await {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(e) => err_response(e),
+    }
+}
+
+// ── composition ────────────────────────────────────────────────────────────────
+
+/// Build the guarded attendance router: validated writes + safe reads, NO generic CRUD mutation
+/// and NO kiosk_pin reads. Mount under the host's authenticated (company_auth) tree.
+pub fn create_guarded_attendance_routes(m: &AttendanceModule) -> Router {
+    let writes = Router::new()
+        .route("/attendance/kiosk/punch", post(kiosk_punch))
+        .route("/attendance/punch", post(punch))
+        .route("/attendance/sessions/:session_id/correct", post(correct_session))
+        .route("/attendance/kiosk/pins", post(issue_pin))
+        .route("/attendance/kiosk/pins/rotate", post(rotate_pin))
+        .route("/attendance/kiosk/pins/unlock", post(unlock_pin))
+        .route("/attendance/kiosk/pins/:employee_id", delete(revoke_pin))
+        .with_state(m.attendance_write_service.clone());
+
+    // Reads: daily rollups, immutable clock events, sessions — kiosk_pin reads are deliberately
+    // absent (hashes/counters never leave the module through a generic GET).
+    Router::new()
+        .merge(create_attendance_read_routes(m.attendance_service.clone()))
+        .merge(create_attendance_clock_read_routes(m.attendance_clock_service.clone()))
+        .merge(create_attendance_session_read_routes(m.attendance_session_service.clone()))
+        .merge(writes)
+}
