@@ -64,7 +64,7 @@ pub struct Attendance {
 impl Attendance {
     /// Create a builder for Attendance
     pub fn builder() -> AttendanceBuilder {
-        AttendanceBuilder::default()
+        <AttendanceBuilder as Default>::default()
     }
 
     /// Create a new Attendance with required fields

@@ -25,10 +25,11 @@ impl TestDataGenerator for AttendanceClockTestData {
         json!({
             "id": Uuid::new_v4().to_string(),
             "company_id": Uuid::new_v4().to_string(),
-            "attendance_id": Uuid::new_v4().to_string(),
+            "session_id": Uuid::new_v4().to_string(),
             "employee_id": Uuid::new_v4().to_string(),
             "date": Utc::now().format("%Y-%m-%d").to_string(),
-            "clock": "12:00:00",
+            "punched_at": now,
+            "direction": "in",
             "metadata": json!({}),
         })
     }
@@ -38,10 +39,11 @@ impl TestDataGenerator for AttendanceClockTestData {
         json!({
             "id": id,
             "company_id": Uuid::new_v4().to_string(),
-            "attendance_id": Uuid::new_v4().to_string(),
+            "session_id": Uuid::new_v4().to_string(),
             "employee_id": Uuid::new_v4().to_string(),
             "date": Utc::now().format("%Y-%m-%d").to_string(),
-            "clock": "12:00:00",
+            "punched_at": now,
+            "direction": "in",
             "metadata": json!({}),
         })
     }
@@ -54,8 +56,8 @@ impl TestDataGenerator for AttendanceClockTestData {
 
     async fn seed_dependencies(&self, api: &ApiTest) -> Vec<(String, String)> {
         let mut deps: Vec<(String, String)> = Vec::new();
-        if let Some(id) = super::crud_test_base::create_and_get_id(api, "/api/v1/attendances", &super::attendance_api_test::AttendanceTestData).await {
-            deps.push(("attendance_id".to_string(), id));
+        if let Some(id) = super::crud_test_base::create_and_get_id(api, "/api/v1/attendance_sessions", &super::attendance_session_api_test::AttendanceSessionTestData).await {
+            deps.push(("session_id".to_string(), id));
         }
         deps
     }

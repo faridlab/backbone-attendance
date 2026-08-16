@@ -4,6 +4,10 @@
 
 pub mod attendance;
 pub mod attendance_clock;
+pub mod attendance_session;
+pub mod kiosk_pin;
+pub mod punch_direction;
+pub mod punch_source;
 
 // Re-exports
 pub use attendance::Attendance;
@@ -12,6 +16,14 @@ pub use attendance::AttendanceId;
 pub use attendance_clock::AttendanceClock;
 pub use attendance_clock::AttendanceClockBuilder;
 pub use attendance_clock::AttendanceClockId;
+pub use attendance_session::AttendanceSession;
+pub use attendance_session::AttendanceSessionBuilder;
+pub use attendance_session::AttendanceSessionId;
+pub use kiosk_pin::KioskPin;
+pub use kiosk_pin::KioskPinBuilder;
+pub use kiosk_pin::KioskPinId;
+pub use punch_direction::PunchDirection;
+pub use punch_source::PunchSource;
 
 // ==========================================================================
 // Entity Trait

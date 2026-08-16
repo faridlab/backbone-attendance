@@ -1,15 +1,17 @@
 # =============================================================================
 # Domain: attendance
 # Entity: AttendanceClock
-# Description: Raw clock events (in/out punches) — multiple per attendance.
-#              attendance_id is an in-module FK to Attendance.id; company_id /
-#              employee_id are cross-module logical FKs (no DB constraint).
+# Description: Raw punch events — immutable-append (pillar-people H-3). Each
+#              event carries its instant (punched_at timestamptz) and direction;
+#              the write path links it to the AttendanceSession it opened or
+#              closed. Nothing here is ever updated or deleted — corrections
+#              edit sessions (with reason + audit), never the punch log.
 # =============================================================================
 
 models:
   - name: AttendanceClock
     collection: attendance_clocks
-    description: "Raw clock events (in/out punches) — multiple per attendance."
+    description: "Raw punch events (in/out) — immutable-append, linked to a session."
 
     fields:
       id:
@@ -22,10 +24,10 @@ models:
         attributes: ["@required", "@exclude_from_foreign_key_check"]
         description: "Org owner # logical FK organization.Company.id"
 
-      attendance_id:
+      session_id:
         type: uuid
-        attributes: ["@required", "@foreign_key(Attendance.id)"]
-        description: "The attendance row # FK attendances.id (in-module)"
+        attributes: ["@required", "@foreign_key(AttendanceSession.id)"]
+        description: "The session this punch opened/closed # FK attendance_sessions.id (in-module)"
 
       employee_id:
         type: uuid
@@ -35,12 +37,17 @@ models:
       date:
         type: date
         attributes: ["@required"]
-        description: "The clock event date"
+        description: "Business date of the punch (local), denormalized for day-grain queries"
 
-      clock:
-        type: time
+      punched_at:
+        type: datetime
         attributes: ["@required"]
-        description: "Punch time"
+        description: "Punch instant (timestamptz)"
+
+      direction:
+        type: PunchDirection
+        attributes: ["@required", "@default(in)"]
+        description: "Punch direction"
 
       metadata:
         type: Metadata
@@ -49,6 +56,16 @@ models:
 
     indexes:
       - type: index
-        fields: [attendance_id]
+        fields: [session_id]
       - type: index
         fields: [employee_id, date]
+
+enums:
+  - name: PunchDirection
+    description: "Punch direction"
+    variants:
+      - name: in
+        default: true
+        description: "Clock in"
+      - name: out
+        description: "Clock out"

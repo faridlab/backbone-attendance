@@ -8,6 +8,8 @@ pub use backbone_core::{Specification, AndSpecification, OrSpecification, NotSpe
 
 pub mod attendance_specification;
 pub mod attendance_clock_specification;
+pub mod attendance_session_specification;
+pub mod kiosk_pin_specification;
 
 // <<< CUSTOM
 // END CUSTOM

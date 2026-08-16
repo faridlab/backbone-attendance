@@ -11,9 +11,13 @@ use sqlx::PgPool;
 
 mod attendance_seeder;
 mod attendance_clock_seeder;
+mod attendance_session_seeder;
+mod kiosk_pin_seeder;
 
 pub use attendance_seeder::SeedAttendanceSeeder;
 pub use attendance_clock_seeder::SeedAttendanceClockSeeder;
+pub use attendance_session_seeder::SeedAttendanceSessionSeeder;
+pub use kiosk_pin_seeder::SeedKioskPinSeeder;
 
 // ============================================================================
 // SEEDER TRAIT

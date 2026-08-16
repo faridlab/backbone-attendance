@@ -11,17 +11,23 @@ use std::sync::Arc;
 use super::{
     attendance_handler::create_attendance_routes,
     attendance_clock_handler::create_attendance_clock_routes,
+    attendance_session_handler::create_attendance_session_routes,
+    kiosk_pin_handler::create_kiosk_pin_routes,
 };
 
 use crate::application::service::{
     AttendanceService,
     AttendanceClockService,
+    AttendanceSessionService,
+    KioskPinService,
 };
 
 /// Services collection for all CRUD endpoints
 pub struct HttpServices {
     pub attendance: Arc<AttendanceService>,
     pub attendance_clock: Arc<AttendanceClockService>,
+    pub attendance_session: Arc<AttendanceSessionService>,
+    pub kiosk_pin: Arc<KioskPinService>,
 }
 
 /// Configure all HTTP routes for this module using Axum and BackboneCrudHandler.
@@ -45,6 +51,10 @@ pub fn configure_routes(services: HttpServices) -> Router {
         .merge(create_attendance_routes(services.attendance))
         // AttendanceClock routes (12 Backbone endpoints)
         .merge(create_attendance_clock_routes(services.attendance_clock))
+        // AttendanceSession routes (12 Backbone endpoints)
+        .merge(create_attendance_session_routes(services.attendance_session))
+        // KioskPin routes (12 Backbone endpoints)
+        .merge(create_kiosk_pin_routes(services.kiosk_pin))
 }
 
 /// Create an individual entity's routes (for modular configuration)
@@ -57,6 +67,14 @@ pub mod individual {
 
     pub fn attendance_clock_routes(service: Arc<AttendanceClockService>) -> Router {
         create_attendance_clock_routes(service)
+    }
+
+    pub fn attendance_session_routes(service: Arc<AttendanceSessionService>) -> Router {
+        create_attendance_session_routes(service)
+    }
+
+    pub fn kiosk_pin_routes(service: Arc<KioskPinService>) -> Router {
+        create_kiosk_pin_routes(service)
     }
 
 }

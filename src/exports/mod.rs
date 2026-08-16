@@ -8,7 +8,7 @@
 //! ## Usage from other modules
 //!
 //! ```text
-//! use attendance::exports::{AttendanceDto, AttendanceQueryService};
+//! use attendance::exports::{AttendanceDto};
 //! ```
 
 mod types;
@@ -33,9 +33,12 @@ pub use events::*;
 /// - `AttendanceClockDto` - Data transfer object for AttendanceClock
 /// - `AttendanceClockSummary` - Summary view of AttendanceClock
 /// - `AttendanceClockId` - Type-safe ID wrapper
-///
-/// ## Public Services
-/// - `AttendanceQueryService` - Read-only queries
+/// - `AttendanceSessionDto` - Data transfer object for AttendanceSession
+/// - `AttendanceSessionSummary` - Summary view of AttendanceSession
+/// - `AttendanceSessionId` - Type-safe ID wrapper
+/// - `KioskPinDto` - Data transfer object for KioskPin
+/// - `KioskPinSummary` - Summary view of KioskPin
+/// - `KioskPinId` - Type-safe ID wrapper
 ///
 /// ## Public Events
 /// - `AttendanceCreatedEvent` - Published when Attendance is created
@@ -44,4 +47,10 @@ pub use events::*;
 /// - `AttendanceClockCreatedEvent` - Published when AttendanceClock is created
 /// - `AttendanceClockUpdatedEvent` - Published when AttendanceClock is updated
 /// - `AttendanceClockDeletedEvent` - Published when AttendanceClock is deleted
+/// - `AttendanceSessionCreatedEvent` - Published when AttendanceSession is created
+/// - `AttendanceSessionUpdatedEvent` - Published when AttendanceSession is updated
+/// - `AttendanceSessionDeletedEvent` - Published when AttendanceSession is deleted
+/// - `KioskPinCreatedEvent` - Published when KioskPin is created
+/// - `KioskPinUpdatedEvent` - Published when KioskPin is updated
+/// - `KioskPinDeletedEvent` - Published when KioskPin is deleted
 pub struct ExportSummary;

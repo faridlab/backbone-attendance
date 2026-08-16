@@ -124,10 +124,11 @@ fn attendance_clock_to_dto(e: AttendanceClock) -> Result<AttendanceClockDto> {
     Ok(AttendanceClockDto {
         id: AttendanceClockId(e.id),
         company_id: e.company_id,
-        attendance_id: e.attendance_id,
+        session_id: e.session_id,
         employee_id: e.employee_id,
         date: e.date,
-        clock: e.clock,
+        punched_at: e.punched_at,
+        direction: e.direction,
         metadata: serde_json::to_value(&e.metadata)?,
     })
 }

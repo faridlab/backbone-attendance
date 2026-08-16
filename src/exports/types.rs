@@ -110,10 +110,11 @@ impl From<AttendanceClockId> for Uuid {
 pub struct AttendanceClockDto {
     pub id: AttendanceClockId,
     pub company_id: Uuid,
-    pub attendance_id: Uuid,
+    pub session_id: Uuid,
     pub employee_id: Uuid,
     pub date: NaiveDate,
-    pub clock: NaiveTime,
+    pub punched_at: DateTime<Utc>,
+    pub direction: PunchDirection,
     pub metadata: serde_json::Value,
 }
 
@@ -127,6 +128,127 @@ pub struct AttendanceClockSummary {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AttendanceClockRef {
     pub id: AttendanceClockId,
+}
+
+// ============================================================================
+// ATTENDANCESESSION TYPES
+// ============================================================================
+
+/// Type-safe ID for AttendanceSession
+///
+/// Use this instead of raw Uuid for type safety across modules.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct AttendanceSessionId(pub Uuid);
+
+impl AttendanceSessionId {
+    pub fn new(id: Uuid) -> Self {
+        Self(id)
+    }
+
+    pub fn into_inner(self) -> Uuid {
+        self.0
+    }
+}
+
+impl From<Uuid> for AttendanceSessionId {
+    fn from(id: Uuid) -> Self {
+        Self(id)
+    }
+}
+
+impl From<AttendanceSessionId> for Uuid {
+    fn from(id: AttendanceSessionId) -> Self {
+        id.0
+    }
+}
+
+/// Data transfer object for AttendanceSession
+///
+/// This is the public representation of AttendanceSession for other modules.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AttendanceSessionDto {
+    pub id: AttendanceSessionId,
+    pub company_id: Uuid,
+    pub employee_id: Uuid,
+    pub date: NaiveDate,
+    pub check_in: DateTime<Utc>,
+    pub check_out: Option<DateTime<Utc>>,
+    pub source: PunchSource,
+    pub correction_reason: Option<String>,
+    pub metadata: serde_json::Value,
+}
+
+/// Summary view of AttendanceSession for list displays
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AttendanceSessionSummary {
+    pub id: AttendanceSessionId,
+}
+
+/// Reference to AttendanceSession for foreign key relationships
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AttendanceSessionRef {
+    pub id: AttendanceSessionId,
+}
+
+// ============================================================================
+// KIOSKPIN TYPES
+// ============================================================================
+
+/// Type-safe ID for KioskPin
+///
+/// Use this instead of raw Uuid for type safety across modules.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct KioskPinId(pub Uuid);
+
+impl KioskPinId {
+    pub fn new(id: Uuid) -> Self {
+        Self(id)
+    }
+
+    pub fn into_inner(self) -> Uuid {
+        self.0
+    }
+}
+
+impl From<Uuid> for KioskPinId {
+    fn from(id: Uuid) -> Self {
+        Self(id)
+    }
+}
+
+impl From<KioskPinId> for Uuid {
+    fn from(id: KioskPinId) -> Self {
+        id.0
+    }
+}
+
+/// Data transfer object for KioskPin
+///
+/// This is the public representation of KioskPin for other modules.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KioskPinDto {
+    pub id: KioskPinId,
+    pub company_id: Uuid,
+    pub employee_id: Uuid,
+    pub badge_code: String,
+    pub pin_hash: String,
+    pub failed_attempts: i32,
+    pub locked_until: Option<DateTime<Utc>>,
+    pub last_attempt_at: Option<DateTime<Utc>>,
+    pub expires_at: Option<DateTime<Utc>>,
+    pub metadata: serde_json::Value,
+}
+
+/// Summary view of KioskPin for list displays
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KioskPinSummary {
+    pub id: KioskPinId,
+}
+
+/// Reference to KioskPin for foreign key relationships
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KioskPinRef {
+    pub id: KioskPinId,
 }
 
 // ============================================================================

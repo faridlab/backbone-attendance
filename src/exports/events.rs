@@ -65,6 +65,60 @@ pub struct AttendanceClockDeletedEvent {
 }
 
 // ============================================================================
+// ATTENDANCESESSION EVENTS
+// ============================================================================
+
+/// Event published when a AttendanceSession is created
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AttendanceSessionCreatedEvent {
+    pub id: AttendanceSessionId,
+    pub data: AttendanceSessionDto,
+    pub occurred_at: DateTime<Utc>,
+}
+
+/// Event published when a AttendanceSession is updated
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AttendanceSessionUpdatedEvent {
+    pub id: AttendanceSessionId,
+    pub data: AttendanceSessionDto,
+    pub occurred_at: DateTime<Utc>,
+}
+
+/// Event published when a AttendanceSession is deleted
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AttendanceSessionDeletedEvent {
+    pub id: AttendanceSessionId,
+    pub occurred_at: DateTime<Utc>,
+}
+
+// ============================================================================
+// KIOSKPIN EVENTS
+// ============================================================================
+
+/// Event published when a KioskPin is created
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KioskPinCreatedEvent {
+    pub id: KioskPinId,
+    pub data: KioskPinDto,
+    pub occurred_at: DateTime<Utc>,
+}
+
+/// Event published when a KioskPin is updated
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KioskPinUpdatedEvent {
+    pub id: KioskPinId,
+    pub data: KioskPinDto,
+    pub occurred_at: DateTime<Utc>,
+}
+
+/// Event published when a KioskPin is deleted
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KioskPinDeletedEvent {
+    pub id: KioskPinId,
+    pub occurred_at: DateTime<Utc>,
+}
+
+// ============================================================================
 // MODULE EVENT ENUM
 // ============================================================================
 
@@ -78,6 +132,12 @@ pub enum AttendanceEvent {
     AttendanceClockCreated(AttendanceClockCreatedEvent),
     AttendanceClockUpdated(AttendanceClockUpdatedEvent),
     AttendanceClockDeleted(AttendanceClockDeletedEvent),
+    AttendanceSessionCreated(AttendanceSessionCreatedEvent),
+    AttendanceSessionUpdated(AttendanceSessionUpdatedEvent),
+    AttendanceSessionDeleted(AttendanceSessionDeletedEvent),
+    KioskPinCreated(KioskPinCreatedEvent),
+    KioskPinUpdated(KioskPinUpdatedEvent),
+    KioskPinDeleted(KioskPinDeletedEvent),
 }
 
 /// Metadata for module events

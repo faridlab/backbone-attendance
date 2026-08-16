@@ -14,6 +14,8 @@ use std::env;
 // Import seeders
 use backbone_attendance::seeders::SeedAttendanceSeeder;
 use backbone_attendance::seeders::SeedAttendanceClockSeeder;
+use backbone_attendance::seeders::SeedAttendanceSessionSeeder;
+use backbone_attendance::seeders::SeedKioskPinSeeder;
 use backbone_attendance::seeders::Seeder;
 
 #[tokio::main]
@@ -26,7 +28,7 @@ async fn main() -> Result<()> {
         .map(|s| s.as_str());
 
     let database_url = env::var("DATABASE_URL")
-        .expect("DATABASE_URL must be set");
+        .map_err(|e| anyhow::anyhow!("DATABASE_URL must be set: {e}"))?;
 
     println!("Connecting to database...");
 
@@ -44,6 +46,8 @@ async fn main() -> Result<()> {
     let mut seeders: Vec<Box<dyn Seeder + Send + Sync>> = Vec::new();
     seeders.push(Box::new(SeedAttendanceSeeder::new()));
     seeders.push(Box::new(SeedAttendanceClockSeeder::new()));
+    seeders.push(Box::new(SeedAttendanceSessionSeeder::new()));
+    seeders.push(Box::new(SeedKioskPinSeeder::new()));
 
     // Sort by order
     seeders.sort_by_key(|s| s.order());

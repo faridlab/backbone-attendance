@@ -1,7 +1,9 @@
-use chrono::{DateTime, Utc, NaiveDate, NaiveTime};
+use chrono::{DateTime, Utc, NaiveDate};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
+
+use super::PunchDirection;
 use super::AuditMetadata;
 
 /// Strongly-typed ID for AttendanceClock
@@ -49,10 +51,11 @@ impl std::ops::Deref for AttendanceClockId {
 pub struct AttendanceClock {
     pub id: Uuid,
     pub company_id: Uuid,
-    pub attendance_id: Uuid,
+    pub session_id: Uuid,
     pub employee_id: Uuid,
     pub date: NaiveDate,
-    pub clock: NaiveTime,
+    pub punched_at: DateTime<Utc>,
+    pub direction: PunchDirection,
     #[serde(default)]
     #[sqlx(json)]
     pub metadata: AuditMetadata,
@@ -61,18 +64,19 @@ pub struct AttendanceClock {
 impl AttendanceClock {
     /// Create a builder for AttendanceClock
     pub fn builder() -> AttendanceClockBuilder {
-        AttendanceClockBuilder::default()
+        <AttendanceClockBuilder as Default>::default()
     }
 
     /// Create a new AttendanceClock with required fields
-    pub fn new(company_id: Uuid, attendance_id: Uuid, employee_id: Uuid, date: NaiveDate, clock: NaiveTime) -> Self {
+    pub fn new(company_id: Uuid, session_id: Uuid, employee_id: Uuid, date: NaiveDate, punched_at: DateTime<Utc>, direction: PunchDirection) -> Self {
         Self {
             id: Uuid::new_v4(),
             company_id,
-            attendance_id,
+            session_id,
             employee_id,
             date,
-            clock,
+            punched_at,
+            direction,
             metadata: AuditMetadata::default(),
         }
     }
@@ -139,8 +143,8 @@ impl AttendanceClock {
                 "company_id" => {
                     if let Ok(v) = serde_json::from_value(value) { self.company_id = v; }
                 }
-                "attendance_id" => {
-                    if let Ok(v) = serde_json::from_value(value) { self.attendance_id = v; }
+                "session_id" => {
+                    if let Ok(v) = serde_json::from_value(value) { self.session_id = v; }
                 }
                 "employee_id" => {
                     if let Ok(v) = serde_json::from_value(value) { self.employee_id = v; }
@@ -148,8 +152,11 @@ impl AttendanceClock {
                 "date" => {
                     if let Ok(v) = serde_json::from_value(value) { self.date = v; }
                 }
-                "clock" => {
-                    if let Ok(v) = serde_json::from_value(value) { self.clock = v; }
+                "punched_at" => {
+                    if let Ok(v) = serde_json::from_value(value) { self.punched_at = v; }
+                }
+                "direction" => {
+                    if let Ok(v) = serde_json::from_value(value) { self.direction = v; }
                 }
                 _ => {} // ignore unknown fields
             }
@@ -206,8 +213,9 @@ impl backbone_orm::EntityRepoMeta for AttendanceClock {
         let mut m = std::collections::HashMap::new();
         m.insert("id".to_string(), "uuid".to_string());
         m.insert("company_id".to_string(), "uuid".to_string());
-        m.insert("attendance_id".to_string(), "uuid".to_string());
+        m.insert("session_id".to_string(), "uuid".to_string());
         m.insert("employee_id".to_string(), "uuid".to_string());
+        m.insert("direction".to_string(), "punch_direction".to_string());
         m
     }
     fn search_fields() -> &'static [&'static str] {
@@ -225,10 +233,11 @@ impl backbone_orm::EntityRepoMeta for AttendanceClock {
 #[derive(Debug, Clone, Default)]
 pub struct AttendanceClockBuilder {
     company_id: Option<Uuid>,
-    attendance_id: Option<Uuid>,
+    session_id: Option<Uuid>,
     employee_id: Option<Uuid>,
     date: Option<NaiveDate>,
-    clock: Option<NaiveTime>,
+    punched_at: Option<DateTime<Utc>>,
+    direction: Option<PunchDirection>,
 }
 
 impl AttendanceClockBuilder {
@@ -238,9 +247,9 @@ impl AttendanceClockBuilder {
         self
     }
 
-    /// Set the attendance_id field (required)
-    pub fn attendance_id(mut self, value: Uuid) -> Self {
-        self.attendance_id = Some(value);
+    /// Set the session_id field (required)
+    pub fn session_id(mut self, value: Uuid) -> Self {
+        self.session_id = Some(value);
         self
     }
 
@@ -256,9 +265,15 @@ impl AttendanceClockBuilder {
         self
     }
 
-    /// Set the clock field (required)
-    pub fn clock(mut self, value: NaiveTime) -> Self {
-        self.clock = Some(value);
+    /// Set the punched_at field (required)
+    pub fn punched_at(mut self, value: DateTime<Utc>) -> Self {
+        self.punched_at = Some(value);
+        self
+    }
+
+    /// Set the direction field (default: `PunchDirection::default()`)
+    pub fn direction(mut self, value: PunchDirection) -> Self {
+        self.direction = Some(value);
         self
     }
 
@@ -267,18 +282,19 @@ impl AttendanceClockBuilder {
     /// Returns Err if any required field without a default is missing.
     pub fn build(self) -> Result<AttendanceClock, String> {
         let company_id = self.company_id.ok_or_else(|| "company_id is required".to_string())?;
-        let attendance_id = self.attendance_id.ok_or_else(|| "attendance_id is required".to_string())?;
+        let session_id = self.session_id.ok_or_else(|| "session_id is required".to_string())?;
         let employee_id = self.employee_id.ok_or_else(|| "employee_id is required".to_string())?;
         let date = self.date.ok_or_else(|| "date is required".to_string())?;
-        let clock = self.clock.ok_or_else(|| "clock is required".to_string())?;
+        let punched_at = self.punched_at.ok_or_else(|| "punched_at is required".to_string())?;
 
         Ok(AttendanceClock {
             id: Uuid::new_v4(),
             company_id,
-            attendance_id,
+            session_id,
             employee_id,
             date,
-            clock,
+            punched_at,
+            direction: self.direction.unwrap_or_default(),
             metadata: AuditMetadata::default(),
         })
     }

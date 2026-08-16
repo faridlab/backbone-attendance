@@ -7,7 +7,7 @@
 
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc, NaiveDate, NaiveTime};
+use chrono::{DateTime, Utc, NaiveDate};
 
 #[cfg(feature = "openapi")]
 #[cfg(feature = "openapi")]
@@ -18,6 +18,7 @@ use validator::Validate;
 
 use crate::domain::entity::AttendanceClock;
 use crate::domain::entity::AuditMetadata;
+use crate::domain::entity::PunchDirection;
 
 // =============================================================================
 // Create DTO
@@ -36,14 +37,17 @@ pub struct CreateAttendanceClockDto {
     #[serde(alias = "company_id")]
     pub company_id: Uuid,
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
-    #[serde(alias = "attendance_id")]
-    pub attendance_id: Uuid,
+    #[serde(alias = "session_id")]
+    pub session_id: Uuid,
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     #[serde(alias = "employee_id")]
     pub employee_id: Uuid,
     #[cfg_attr(feature = "openapi", schema(example = "2024-01-01"))]
     pub date: NaiveDate,
-    pub clock: NaiveTime,
+    #[cfg_attr(feature = "openapi", schema(example = "2024-01-01T00:00:00Z"))]
+    #[serde(alias = "punched_at")]
+    pub punched_at: DateTime<Utc>,
+    pub direction: PunchDirection,
 }
 
 // =============================================================================
@@ -63,14 +67,17 @@ pub struct UpdateAttendanceClockDto {
     #[serde(alias = "company_id")]
     pub company_id: Uuid,
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
-    #[serde(alias = "attendance_id")]
-    pub attendance_id: Uuid,
+    #[serde(alias = "session_id")]
+    pub session_id: Uuid,
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     #[serde(alias = "employee_id")]
     pub employee_id: Uuid,
     #[cfg_attr(feature = "openapi", schema(example = "2024-01-01"))]
     pub date: NaiveDate,
-    pub clock: NaiveTime,
+    #[cfg_attr(feature = "openapi", schema(example = "2024-01-01T00:00:00Z"))]
+    #[serde(alias = "punched_at")]
+    pub punched_at: DateTime<Utc>,
+    pub direction: PunchDirection,
 }
 
 // =============================================================================
@@ -90,22 +97,25 @@ pub struct PatchAttendanceClockDto {
     #[serde(skip_serializing_if = "Option::is_none", alias = "company_id")]
     pub company_id: Option<Uuid>,
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
-    #[serde(skip_serializing_if = "Option::is_none", alias = "attendance_id")]
-    pub attendance_id: Option<Uuid>,
+    #[serde(skip_serializing_if = "Option::is_none", alias = "session_id")]
+    pub session_id: Option<Uuid>,
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     #[serde(skip_serializing_if = "Option::is_none", alias = "employee_id")]
     pub employee_id: Option<Uuid>,
     #[cfg_attr(feature = "openapi", schema(example = "2024-01-01"))]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub date: Option<NaiveDate>,
+    #[cfg_attr(feature = "openapi", schema(example = "2024-01-01T00:00:00Z"))]
+    #[serde(skip_serializing_if = "Option::is_none", alias = "punched_at")]
+    pub punched_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub clock: Option<NaiveTime>,
+    pub direction: Option<PunchDirection>,
 }
 
 impl PatchAttendanceClockDto {
     /// Check if any field is set
     pub fn has_changes(&self) -> bool {
-        self.company_id.is_some() || self.attendance_id.is_some() || self.employee_id.is_some() || self.date.is_some() || self.clock.is_some()
+        self.company_id.is_some() || self.session_id.is_some() || self.employee_id.is_some() || self.date.is_some() || self.punched_at.is_some() || self.direction.is_some()
     }
 }
 
@@ -126,12 +136,14 @@ pub struct AttendanceClockResponseDto {
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     pub company_id: Uuid,
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
-    pub attendance_id: Uuid,
+    pub session_id: Uuid,
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     pub employee_id: Uuid,
     #[cfg_attr(feature = "openapi", schema(example = "2024-01-01"))]
     pub date: NaiveDate,
-    pub clock: NaiveTime,
+    #[cfg_attr(feature = "openapi", schema(example = "2024-01-01T00:00:00Z"))]
+    pub punched_at: DateTime<Utc>,
+    pub direction: PunchDirection,
     pub metadata: AuditMetadata,
 }
 
@@ -190,7 +202,7 @@ impl AttendanceClockListResponseDto {
 pub struct AttendanceClockSummaryDto {
     pub id: Uuid,
     pub company_id: Uuid,
-    pub attendance_id: Uuid,
+    pub session_id: Uuid,
     pub employee_id: Uuid,
     pub created_at: Option<DateTime<Utc>>,
 }
@@ -204,10 +216,11 @@ impl From<AttendanceClock> for AttendanceClockResponseDto {
         Self {
             id: entity.id,
             company_id: entity.company_id,
-            attendance_id: entity.attendance_id,
+            session_id: entity.session_id,
             employee_id: entity.employee_id,
             date: entity.date,
-            clock: entity.clock,
+            punched_at: entity.punched_at,
+            direction: entity.direction,
             metadata: entity.metadata,
         }
     }
@@ -219,7 +232,7 @@ impl From<AttendanceClock> for AttendanceClockSummaryDto {
         Self {
             id: entity.id,
             company_id: entity.company_id,
-            attendance_id: entity.attendance_id,
+            session_id: entity.session_id,
             employee_id: entity.employee_id,
             created_at,
         }
@@ -231,10 +244,11 @@ impl From<CreateAttendanceClockDto> for AttendanceClock {
         Self {
             id: Uuid::new_v4(),
             company_id: dto.company_id,
-            attendance_id: dto.attendance_id,
+            session_id: dto.session_id,
             employee_id: dto.employee_id,
             date: dto.date,
-            clock: dto.clock,
+            punched_at: dto.punched_at,
+            direction: dto.direction,
             metadata: AuditMetadata::default(),
         }
     }
@@ -245,10 +259,11 @@ impl From<&AttendanceClock> for AttendanceClockResponseDto {
         Self {
             id: entity.id.clone(),
             company_id: entity.company_id.clone(),
-            attendance_id: entity.attendance_id.clone(),
+            session_id: entity.session_id.clone(),
             employee_id: entity.employee_id.clone(),
             date: entity.date.clone(),
-            clock: entity.clock.clone(),
+            punched_at: entity.punched_at.clone(),
+            direction: entity.direction.clone(),
             metadata: entity.metadata.clone(),
         }
     }
@@ -263,10 +278,11 @@ impl backbone_core::FromCreateDto<CreateAttendanceClockDto> for AttendanceClock 
 impl backbone_core::ApplyUpdateDto<UpdateAttendanceClockDto> for AttendanceClock {
     fn apply_update(mut self, dto: UpdateAttendanceClockDto) -> backbone_core::ServiceResult<Self> {
         self.company_id = dto.company_id;
-        self.attendance_id = dto.attendance_id;
+        self.session_id = dto.session_id;
         self.employee_id = dto.employee_id;
         self.date = dto.date;
-        self.clock = dto.clock;
+        self.punched_at = dto.punched_at;
+        self.direction = dto.direction;
         Ok(self)
     }
 }

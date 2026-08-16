@@ -7,6 +7,8 @@
 
 pub mod attendance_dto;
 pub mod attendance_clock_dto;
+pub mod attendance_session_dto;
+pub mod kiosk_pin_dto;
 
 // Re-exports
 pub use attendance_dto::{
@@ -24,6 +26,22 @@ pub use attendance_clock_dto::{
     AttendanceClockResponseDto,
     AttendanceClockListResponseDto,
     AttendanceClockSummaryDto,
+};
+pub use attendance_session_dto::{
+    CreateAttendanceSessionDto,
+    UpdateAttendanceSessionDto,
+    PatchAttendanceSessionDto,
+    AttendanceSessionResponseDto,
+    AttendanceSessionListResponseDto,
+    AttendanceSessionSummaryDto,
+};
+pub use kiosk_pin_dto::{
+    CreateKioskPinDto,
+    UpdateKioskPinDto,
+    PatchKioskPinDto,
+    KioskPinResponseDto,
+    KioskPinListResponseDto,
+    KioskPinSummaryDto,
 };
 
 // Common pagination types

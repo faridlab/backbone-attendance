@@ -8,6 +8,8 @@
 
 pub mod attendance_repository;
 pub mod attendance_clock_repository;
+pub mod attendance_session_repository;
+pub mod kiosk_pin_repository;
 
 // Re-exports
 pub use attendance_repository::{
@@ -21,4 +23,16 @@ pub use attendance_clock_repository::{
     AttendanceClockPaginationParams,
     AttendanceClockPaginatedResult,
     AttendanceClockFilter,
+};
+pub use attendance_session_repository::{
+    AttendanceSessionRepository,
+    AttendanceSessionPaginationParams,
+    AttendanceSessionPaginatedResult,
+    AttendanceSessionFilter,
+};
+pub use kiosk_pin_repository::{
+    KioskPinRepository,
+    KioskPinPaginationParams,
+    KioskPinPaginatedResult,
+    KioskPinFilter,
 };

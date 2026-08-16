@@ -13,7 +13,7 @@ module: attendance
 version: 2
 schema: attendance
 
-# ADR-0014 company fence (Wave 1 P0 sweep, 2026-08-16): presence records are company-private (pillar-hrms H-3).
+# ADR-0014 company fence (Wave 1 P0 sweep, 2026-08-16): presence records are company-private (pillar-people H-3).
 company_fence: strict
 description: "employee presence + clock events"
 
@@ -64,7 +64,9 @@ shared_types:
 
   Metadata: [Timestamps, Actors]
 
-# Import each entity model. The 2 real entities (Example skeleton removed).
+# Import each entity model (Example skeleton removed).
 imports:
   - attendance.model.yaml
   - attendance_clock.model.yaml
+  - attendance_session.model.yaml
+  - kiosk_pin.model.yaml

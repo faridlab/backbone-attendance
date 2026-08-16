@@ -11,6 +11,8 @@ use std::sync::Arc;
 // Import all services
 use crate::application::service::AttendanceService;
 use crate::application::service::AttendanceClockService;
+use crate::application::service::AttendanceSessionService;
+use crate::application::service::KioskPinService;
 
 /// Application state for dependency injection.
 ///
@@ -34,17 +36,25 @@ pub struct AppState {
     pub attendance_service: Arc<AttendanceService>,
     /// AttendanceClock service
     pub attendance_clock_service: Arc<AttendanceClockService>,
+    /// AttendanceSession service
+    pub attendance_session_service: Arc<AttendanceSessionService>,
+    /// KioskPin service
+    pub kiosk_pin_service: Arc<KioskPinService>,
 }
 
 impl AppState {
     /// Create a new AppState with all services.
     pub fn new(
         attendance_service: Arc<AttendanceService>,
-        attendance_clock_service: Arc<AttendanceClockService>
+        attendance_clock_service: Arc<AttendanceClockService>,
+        attendance_session_service: Arc<AttendanceSessionService>,
+        kiosk_pin_service: Arc<KioskPinService>
     ) -> Self {
         Self {
             attendance_service,
             attendance_clock_service,
+            attendance_session_service,
+            kiosk_pin_service,
         }
     }
 
@@ -53,6 +63,8 @@ impl AppState {
         Self {
             attendance_service: module.attendance_service.clone(),
             attendance_clock_service: module.attendance_clock_service.clone(),
+            attendance_session_service: module.attendance_session_service.clone(),
+            kiosk_pin_service: module.kiosk_pin_service.clone(),
         }
     }
 }
@@ -64,6 +76,8 @@ impl AppState {
 pub struct AppStateBuilder {
     attendance_service: Option<Arc<AttendanceService>>,
     attendance_clock_service: Option<Arc<AttendanceClockService>>,
+    attendance_session_service: Option<Arc<AttendanceSessionService>>,
+    kiosk_pin_service: Option<Arc<KioskPinService>>,
 }
 
 impl AppStateBuilder {
@@ -84,6 +98,18 @@ impl AppStateBuilder {
         self
     }
 
+    /// Set the AttendanceSession service.
+    pub fn with_attendance_session_service(mut self, service: Arc<AttendanceSessionService>) -> Self {
+        self.attendance_session_service = Some(service);
+        self
+    }
+
+    /// Set the KioskPin service.
+    pub fn with_kiosk_pin_service(mut self, service: Arc<KioskPinService>) -> Self {
+        self.kiosk_pin_service = Some(service);
+        self
+    }
+
     /// Build the AppState.
     ///
     /// # Panics
@@ -93,6 +119,8 @@ impl AppStateBuilder {
         AppState {
             attendance_service: self.attendance_service.expect("attendance_service is required"),
             attendance_clock_service: self.attendance_clock_service.expect("attendance_clock_service is required"),
+            attendance_session_service: self.attendance_session_service.expect("attendance_session_service is required"),
+            kiosk_pin_service: self.kiosk_pin_service.expect("kiosk_pin_service is required"),
         }
     }
 }

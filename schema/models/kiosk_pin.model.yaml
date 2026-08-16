@@ -1,0 +1,78 @@
+# =============================================================================
+# Domain: attendance
+# Entity: KioskPin
+# Description: A kiosk clock credential: badge_code identifies the employee at
+#              the shared device, pin authenticates them. ADR-0018 Tier B
+#              posture (pillar-people H-3): the PIN is argon2id-hashed
+#              (never plain == like Odoo's attendance_kiosk_mode), every
+#              verification is throttled and attempt-counted with escalating
+#              lockout, and the code lives ONLY where a human types it — the
+#              kiosk device itself authenticates with a Tier A company bearer.
+#              Expiry is expressed as an optional expires_at (rotation policy);
+#              standing credentials rotate on admin action, not auto-expiry.
+# =============================================================================
+
+models:
+  - name: KioskPin
+    collection: kiosk_pins
+    description: "Kiosk clock credential (badge code + argon2 PIN, throttled + attempt-counted)."
+
+    fields:
+      id:
+        type: uuid
+        attributes: ["@id", "@default(uuid)"]
+        description: "Unique record id"
+
+      company_id:
+        type: uuid
+        attributes: ["@required", "@exclude_from_foreign_key_check"]
+        description: "Org owner # logical FK organization.Company.id"
+
+      employee_id:
+        type: uuid
+        attributes: ["@required", "@exclude_from_foreign_key_check"]
+        description: "The employee # logical FK employee.Employee.id"
+
+      badge_code:
+        type: string
+        attributes: ["@required", "@length(max=64)"]
+        description: "Badge/employee code typed or scanned at the kiosk"
+
+      pin_hash:
+        type: string
+        attributes: ["@required", "@length(max=255)"]
+        description: "argon2id PHC string of the kiosk PIN"
+
+      failed_attempts:
+        type: integer
+        attributes: ["@required", "@default(0)"]
+        description: "Consecutive failed verifications since last success/reset"
+
+      locked_until:
+        type: datetime?
+        description: "Lockout deadline after repeated failures (escalating)"
+
+      last_attempt_at:
+        type: datetime?
+        description: "Last verification attempt instant (throttle window input)"
+
+      expires_at:
+        type: datetime?
+        description: "Optional forced-rotation deadline (NULL = no auto-expiry)"
+
+      metadata:
+        type: Metadata
+        attributes: ["@audit_metadata"]
+        description: "Audit metadata"
+
+    indexes:
+      # Kiosk lookup: badge identifies, within one company, among live rows.
+      - type: unique
+        fields: [company_id, badge_code]
+        where: "deleted_at IS NULL"
+        description: "One live credential per badge code per company"
+      # One live credential per employee.
+      - type: unique
+        fields: [company_id, employee_id]
+        where: "deleted_at IS NULL"
+        description: "One live kiosk credential per employee per company"

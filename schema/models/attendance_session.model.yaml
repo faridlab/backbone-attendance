@@ -1,0 +1,85 @@
+# =============================================================================
+# Domain: attendance
+# Entity: AttendanceSession
+# Description: One contiguous worked interval (check_in → check_out). This is
+#              the range the DB-level EXCLUDE overlap constraint protects
+#              (pillar-people H-3: Odoo left the overlap check as commented-out
+#              ORM code; our ADR-0015 default is a real DB constraint). Sessions
+#              span midnight freely — the `date` column is the business date of
+#              the shift start, not a boundary. Corrections are explicit,
+#              audited UPDATEs (reason recorded, updated_by from the fence
+#              context); clock events are never rewritten.
+# =============================================================================
+
+models:
+  - name: AttendanceSession
+    collection: attendance_sessions
+    description: "One contiguous worked interval (check_in → check_out); DB-level overlap-excluded per employee."
+
+    fields:
+      id:
+        type: uuid
+        attributes: ["@id", "@default(uuid)"]
+        description: "Unique record id"
+
+      company_id:
+        type: uuid
+        attributes: ["@required", "@exclude_from_foreign_key_check"]
+        description: "Org owner # logical FK organization.Company.id"
+
+      employee_id:
+        type: uuid
+        attributes: ["@required", "@exclude_from_foreign_key_check"]
+        description: "The employee # logical FK employee.Employee.id"
+
+      date:
+        type: date
+        attributes: ["@required"]
+        description: "Business date of the shift start (local); sessions may cross midnight"
+
+      check_in:
+        type: datetime
+        attributes: ["@required"]
+        description: "Session start (timestamptz)"
+
+      check_out:
+        type: datetime?
+        description: "Session end (timestamptz); NULL = still open"
+
+      source:
+        type: PunchSource
+        attributes: ["@required", "@default(kiosk)"]
+        description: "Where the session was opened from"
+
+      correction_reason:
+        type: string?
+        attributes: ["@length(max=255)"]
+        description: "Mandatory reason when check_in/check_out were corrected after the fact"
+
+      metadata:
+        type: Metadata
+        attributes: ["@audit_metadata"]
+        description: "Audit metadata"
+
+    indexes:
+      - type: index
+        fields: [company_id, employee_id]
+      - type: index
+        fields: [company_id, date]
+      # Open sessions per employee — the punch-out lookup.
+      - type: index
+        fields: [company_id, employee_id]
+        where: "check_out IS NULL AND deleted_at IS NULL"
+        description: "Find the open session for an employee"
+
+enums:
+  - name: PunchSource
+    description: "Where a punch originated"
+    variants:
+      - name: kiosk
+        default: true
+        description: "Shared kiosk device (badge + PIN)"
+      - name: self_service
+        description: "The employee's own authenticated session"
+      - name: admin
+        description: "Manager/admin entry or correction"

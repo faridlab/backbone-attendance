@@ -15,6 +15,10 @@ tags:
     description: Attendance management endpoints
   - name: AttendanceClocks
     description: AttendanceClock management endpoints
+  - name: AttendanceSessions
+    description: AttendanceSession management endpoints
+  - name: KioskPins
+    description: KioskPin management endpoints
 
 paths:
   /api/v1/attendances:
@@ -749,6 +753,738 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
+  /api/v1/attendance_sessions:
+    get:
+      tags:
+        - AttendanceSessions
+      summary: List AttendanceSessions
+      description: Get a paginated list of AttendanceSessions with optional filtering and sorting
+      operationId: listAttendanceSessions
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+        - $ref: '#/components/parameters/SortByParam'
+        - $ref: '#/components/parameters/SortOrderParam'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceSessionList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags:
+        - AttendanceSessions
+      summary: Create AttendanceSession
+      description: Create a new AttendanceSession
+      operationId: createAttendanceSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAttendanceSessionRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceSession'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/attendance_sessions/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+
+    get:
+      tags:
+        - AttendanceSessions
+      summary: Get AttendanceSession by ID
+      operationId: getAttendanceSession
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceSession'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags:
+        - AttendanceSessions
+      summary: Update AttendanceSession (full)
+      operationId: updateAttendanceSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAttendanceSessionRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceSession'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      tags:
+        - AttendanceSessions
+      summary: Update AttendanceSession (partial)
+      operationId: patchAttendanceSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchAttendanceSessionRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceSession'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags:
+        - AttendanceSessions
+      summary: Delete AttendanceSession (soft)
+      operationId: deleteAttendanceSession
+      responses:
+        '204':
+          description: Deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/attendance_sessions/bulk:
+    post:
+      tags:
+        - AttendanceSessions
+      summary: Bulk create AttendanceSessions
+      operationId: bulkCreateAttendanceSessions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/CreateAttendanceSessionRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AttendanceSession'
+    put:
+      tags:
+        - AttendanceSessions
+      summary: Bulk update AttendanceSessions (full, atomic)
+      operationId: bulkUpdateAttendanceSessions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                allOf:
+                  - type: object
+                    required: [id]
+                    properties:
+                      id:
+                        type: string
+                  - $ref: '#/components/schemas/UpdateAttendanceSessionRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceSessionBulkResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+    patch:
+      tags:
+        - AttendanceSessions
+      summary: Bulk partial-update AttendanceSessions (atomic)
+      operationId: bulkPatchAttendanceSessions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [ids, patch]
+                  properties:
+                    ids:
+                      type: array
+                      items: { type: string }
+                    patch:
+                      type: object
+                      additionalProperties: true
+                - type: object
+                  required: [items]
+                  properties:
+                    items:
+                      type: array
+                      items:
+                        type: object
+                        required: [id, patch]
+                        properties:
+                          id: { type: string }
+                          patch: { type: object, additionalProperties: true }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceSessionBulkResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/attendance_sessions/upsert:
+    post:
+      tags:
+        - AttendanceSessions
+      summary: Upsert AttendanceSession
+      operationId: upsertAttendanceSession
+      parameters:
+        - name: key_field
+          in: query
+          schema:
+            type: string
+        - name: key_value
+          in: query
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAttendanceSessionRequest'
+      responses:
+        '200':
+          description: Upserted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceSession'
+
+  /api/v1/attendance_sessions/trash:
+    get:
+      tags:
+        - AttendanceSessions
+      summary: List deleted AttendanceSessions
+      operationId: listDeletedAttendanceSessions
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceSessionList'
+
+  /api/v1/attendance_sessions/{id}/restore:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+    post:
+      tags:
+        - AttendanceSessions
+      summary: Restore deleted AttendanceSession
+      operationId: restoreAttendanceSession
+      responses:
+        '200':
+          description: Restored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceSession'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/attendance_sessions/empty:
+    delete:
+      tags:
+        - AttendanceSessions
+      summary: Empty trash for AttendanceSessions
+      operationId: emptyTrashAttendanceSessions
+      responses:
+        '200':
+          description: Trash emptied
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted_count:
+                    type: integer
+
+  /api/v1/attendance_sessions/delete/bulk:
+    post:
+      tags:
+        - AttendanceSessions
+      summary: Bulk soft-delete AttendanceSessions by ids (atomic)
+      operationId: bulkDeleteAttendanceSessions
+      requestBody:
+        $ref: '#/components/requestBodies/BatchIds'
+      responses:
+        '200':
+          description: Soft-deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  soft_deleted: { type: integer }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/attendance_sessions/restore/bulk:
+    post:
+      tags:
+        - AttendanceSessions
+      summary: Bulk restore AttendanceSessions by ids (atomic)
+      operationId: bulkRestoreAttendanceSessions
+      requestBody:
+        $ref: '#/components/requestBodies/BatchIds'
+      responses:
+        '200':
+          description: Restored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceSessionBulkResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/attendance_sessions/restore/all:
+    post:
+      tags:
+        - AttendanceSessions
+      summary: Restore all soft-deleted AttendanceSessions
+      operationId: restoreAllAttendanceSessions
+      responses:
+        '200':
+          description: Restored
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  restored: { type: integer }
+
+  /api/v1/attendance_sessions/trash/bulk:
+    delete:
+      tags:
+        - AttendanceSessions
+      summary: Bulk permanently-delete AttendanceSessions from trash by ids (atomic)
+      operationId: bulkPermanentDeleteAttendanceSessions
+      requestBody:
+        $ref: '#/components/requestBodies/BatchIds'
+      responses:
+        '200':
+          description: Permanently deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  permanently_deleted: { type: integer }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/kiosk_pins:
+    get:
+      tags:
+        - KioskPins
+      summary: List KioskPins
+      description: Get a paginated list of KioskPins with optional filtering and sorting
+      operationId: listKioskPins
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+        - $ref: '#/components/parameters/SortByParam'
+        - $ref: '#/components/parameters/SortOrderParam'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KioskPinList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags:
+        - KioskPins
+      summary: Create KioskPin
+      description: Create a new KioskPin
+      operationId: createKioskPin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateKioskPinRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KioskPin'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/kiosk_pins/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+
+    get:
+      tags:
+        - KioskPins
+      summary: Get KioskPin by ID
+      operationId: getKioskPin
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KioskPin'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags:
+        - KioskPins
+      summary: Update KioskPin (full)
+      operationId: updateKioskPin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateKioskPinRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KioskPin'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      tags:
+        - KioskPins
+      summary: Update KioskPin (partial)
+      operationId: patchKioskPin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchKioskPinRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KioskPin'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags:
+        - KioskPins
+      summary: Delete KioskPin (soft)
+      operationId: deleteKioskPin
+      responses:
+        '204':
+          description: Deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/kiosk_pins/bulk:
+    post:
+      tags:
+        - KioskPins
+      summary: Bulk create KioskPins
+      operationId: bulkCreateKioskPins
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/CreateKioskPinRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/KioskPin'
+    put:
+      tags:
+        - KioskPins
+      summary: Bulk update KioskPins (full, atomic)
+      operationId: bulkUpdateKioskPins
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                allOf:
+                  - type: object
+                    required: [id]
+                    properties:
+                      id:
+                        type: string
+                  - $ref: '#/components/schemas/UpdateKioskPinRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KioskPinBulkResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+    patch:
+      tags:
+        - KioskPins
+      summary: Bulk partial-update KioskPins (atomic)
+      operationId: bulkPatchKioskPins
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [ids, patch]
+                  properties:
+                    ids:
+                      type: array
+                      items: { type: string }
+                    patch:
+                      type: object
+                      additionalProperties: true
+                - type: object
+                  required: [items]
+                  properties:
+                    items:
+                      type: array
+                      items:
+                        type: object
+                        required: [id, patch]
+                        properties:
+                          id: { type: string }
+                          patch: { type: object, additionalProperties: true }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KioskPinBulkResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/kiosk_pins/upsert:
+    post:
+      tags:
+        - KioskPins
+      summary: Upsert KioskPin
+      operationId: upsertKioskPin
+      parameters:
+        - name: key_field
+          in: query
+          schema:
+            type: string
+        - name: key_value
+          in: query
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateKioskPinRequest'
+      responses:
+        '200':
+          description: Upserted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KioskPin'
+
+  /api/v1/kiosk_pins/trash:
+    get:
+      tags:
+        - KioskPins
+      summary: List deleted KioskPins
+      operationId: listDeletedKioskPins
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KioskPinList'
+
+  /api/v1/kiosk_pins/{id}/restore:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+    post:
+      tags:
+        - KioskPins
+      summary: Restore deleted KioskPin
+      operationId: restoreKioskPin
+      responses:
+        '200':
+          description: Restored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KioskPin'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/kiosk_pins/empty:
+    delete:
+      tags:
+        - KioskPins
+      summary: Empty trash for KioskPins
+      operationId: emptyTrashKioskPins
+      responses:
+        '200':
+          description: Trash emptied
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted_count:
+                    type: integer
+
+  /api/v1/kiosk_pins/delete/bulk:
+    post:
+      tags:
+        - KioskPins
+      summary: Bulk soft-delete KioskPins by ids (atomic)
+      operationId: bulkDeleteKioskPins
+      requestBody:
+        $ref: '#/components/requestBodies/BatchIds'
+      responses:
+        '200':
+          description: Soft-deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  soft_deleted: { type: integer }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/kiosk_pins/restore/bulk:
+    post:
+      tags:
+        - KioskPins
+      summary: Bulk restore KioskPins by ids (atomic)
+      operationId: bulkRestoreKioskPins
+      requestBody:
+        $ref: '#/components/requestBodies/BatchIds'
+      responses:
+        '200':
+          description: Restored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KioskPinBulkResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/kiosk_pins/restore/all:
+    post:
+      tags:
+        - KioskPins
+      summary: Restore all soft-deleted KioskPins
+      operationId: restoreAllKioskPins
+      responses:
+        '200':
+          description: Restored
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  restored: { type: integer }
+
+  /api/v1/kiosk_pins/trash/bulk:
+    delete:
+      tags:
+        - KioskPins
+      summary: Bulk permanently-delete KioskPins from trash by ids (atomic)
+      operationId: bulkPermanentDeleteKioskPins
+      requestBody:
+        $ref: '#/components/requestBodies/BatchIds'
+      responses:
+        '200':
+          description: Permanently deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  permanently_deleted: { type: integer }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
 components:
   schemas:
     Attendance:
@@ -926,10 +1662,11 @@ components:
       required:
         - id
         - company_id
-        - attendance_id
+        - session_id
         - employee_id
         - date
-        - clock
+        - punched_at
+        - direction
         - metadata
       properties:
         id:
@@ -938,7 +1675,7 @@ components:
         company_id:
           type: string
           format: uuid
-        attendance_id:
+        session_id:
           type: string
           format: uuid
         employee_id:
@@ -947,9 +1684,11 @@ components:
         date:
           type: string
           format: date
-        clock:
+        punched_at:
           type: string
-          format: time
+          format: date-time
+        direction:
+          type: string
         metadata:
           type: object
 
@@ -970,16 +1709,17 @@ components:
       type: object
       required:
         - company_id
-        - attendance_id
+        - session_id
         - employee_id
         - date
-        - clock
+        - punched_at
+        - direction
         - metadata
       properties:
         company_id:
           type: string
           format: uuid
-        attendance_id:
+        session_id:
           type: string
           format: uuid
         employee_id:
@@ -988,9 +1728,11 @@ components:
         date:
           type: string
           format: date
-        clock:
+        punched_at:
           type: string
-          format: time
+          format: date-time
+        direction:
+          type: string
         metadata:
           type: object
 
@@ -998,16 +1740,17 @@ components:
       type: object
       required:
         - company_id
-        - attendance_id
+        - session_id
         - employee_id
         - date
-        - clock
+        - punched_at
+        - direction
         - metadata
       properties:
         company_id:
           type: string
           format: uuid
-        attendance_id:
+        session_id:
           type: string
           format: uuid
         employee_id:
@@ -1016,9 +1759,11 @@ components:
         date:
           type: string
           format: date
-        clock:
+        punched_at:
           type: string
-          format: time
+          format: date-time
+        direction:
+          type: string
         metadata:
           type: object
 
@@ -1028,7 +1773,7 @@ components:
         company_id:
           type: string
           format: uuid
-        attendance_id:
+        session_id:
           type: string
           format: uuid
         employee_id:
@@ -1037,9 +1782,11 @@ components:
         date:
           type: string
           format: date
-        clock:
+        punched_at:
           type: string
-          format: time
+          format: date-time
+        direction:
+          type: string
         metadata:
           type: object
 
@@ -1050,6 +1797,334 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AttendanceClock'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+
+    AttendanceSession:
+      type: object
+      required:
+        - id
+        - company_id
+        - employee_id
+        - date
+        - check_in
+        - source
+        - metadata
+      properties:
+        id:
+          type: string
+          format: uuid
+        company_id:
+          type: string
+          format: uuid
+        employee_id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date
+        check_in:
+          type: string
+          format: date-time
+        check_out:
+          nullable: true
+          type: string
+          format: date-time
+        source:
+          type: string
+        correction_reason:
+          nullable: true
+          type: string
+        metadata:
+          type: object
+
+    AttendanceSessionBulkResult:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttendanceSession'
+        total: { type: integer }
+        failed: { type: integer }
+        errors:
+          type: array
+          items: { type: string }
+
+    CreateAttendanceSessionRequest:
+      type: object
+      required:
+        - company_id
+        - employee_id
+        - date
+        - check_in
+        - source
+        - metadata
+      properties:
+        company_id:
+          type: string
+          format: uuid
+        employee_id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date
+        check_in:
+          type: string
+          format: date-time
+        check_out:
+          nullable: true
+          type: string
+          format: date-time
+        source:
+          type: string
+        correction_reason:
+          nullable: true
+          type: string
+        metadata:
+          type: object
+
+    UpdateAttendanceSessionRequest:
+      type: object
+      required:
+        - company_id
+        - employee_id
+        - date
+        - check_in
+        - source
+        - metadata
+      properties:
+        company_id:
+          type: string
+          format: uuid
+        employee_id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date
+        check_in:
+          type: string
+          format: date-time
+        check_out:
+          nullable: true
+          type: string
+          format: date-time
+        source:
+          type: string
+        correction_reason:
+          nullable: true
+          type: string
+        metadata:
+          type: object
+
+    PatchAttendanceSessionRequest:
+      type: object
+      properties:
+        company_id:
+          type: string
+          format: uuid
+        employee_id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date
+        check_in:
+          type: string
+          format: date-time
+        check_out:
+          nullable: true
+          type: string
+          format: date-time
+        source:
+          type: string
+        correction_reason:
+          nullable: true
+          type: string
+        metadata:
+          type: object
+
+    AttendanceSessionList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttendanceSession'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+
+    KioskPin:
+      type: object
+      required:
+        - id
+        - company_id
+        - employee_id
+        - badge_code
+        - pin_hash
+        - failed_attempts
+        - metadata
+      properties:
+        id:
+          type: string
+          format: uuid
+        company_id:
+          type: string
+          format: uuid
+        employee_id:
+          type: string
+          format: uuid
+        badge_code:
+          type: string
+        pin_hash:
+          type: string
+        failed_attempts:
+          type: integer
+          format: int32
+        locked_until:
+          nullable: true
+          type: string
+          format: date-time
+        last_attempt_at:
+          nullable: true
+          type: string
+          format: date-time
+        expires_at:
+          nullable: true
+          type: string
+          format: date-time
+        metadata:
+          type: object
+
+    KioskPinBulkResult:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/KioskPin'
+        total: { type: integer }
+        failed: { type: integer }
+        errors:
+          type: array
+          items: { type: string }
+
+    CreateKioskPinRequest:
+      type: object
+      required:
+        - company_id
+        - employee_id
+        - badge_code
+        - pin_hash
+        - failed_attempts
+        - metadata
+      properties:
+        company_id:
+          type: string
+          format: uuid
+        employee_id:
+          type: string
+          format: uuid
+        badge_code:
+          type: string
+        pin_hash:
+          type: string
+        failed_attempts:
+          type: integer
+          format: int32
+        locked_until:
+          nullable: true
+          type: string
+          format: date-time
+        last_attempt_at:
+          nullable: true
+          type: string
+          format: date-time
+        expires_at:
+          nullable: true
+          type: string
+          format: date-time
+        metadata:
+          type: object
+
+    UpdateKioskPinRequest:
+      type: object
+      required:
+        - company_id
+        - employee_id
+        - badge_code
+        - pin_hash
+        - failed_attempts
+        - metadata
+      properties:
+        company_id:
+          type: string
+          format: uuid
+        employee_id:
+          type: string
+          format: uuid
+        badge_code:
+          type: string
+        pin_hash:
+          type: string
+        failed_attempts:
+          type: integer
+          format: int32
+        locked_until:
+          nullable: true
+          type: string
+          format: date-time
+        last_attempt_at:
+          nullable: true
+          type: string
+          format: date-time
+        expires_at:
+          nullable: true
+          type: string
+          format: date-time
+        metadata:
+          type: object
+
+    PatchKioskPinRequest:
+      type: object
+      properties:
+        company_id:
+          type: string
+          format: uuid
+        employee_id:
+          type: string
+          format: uuid
+        badge_code:
+          type: string
+        pin_hash:
+          type: string
+        failed_attempts:
+          type: integer
+          format: int32
+        locked_until:
+          nullable: true
+          type: string
+          format: date-time
+        last_attempt_at:
+          nullable: true
+          type: string
+          format: date-time
+        expires_at:
+          nullable: true
+          type: string
+          format: date-time
+        metadata:
+          type: object
+
+    KioskPinList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/KioskPin'
         meta:
           $ref: '#/components/schemas/PaginationMeta'
 

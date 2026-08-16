@@ -10,7 +10,7 @@ use std::sync::Arc;
 use axum::Router;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{NaiveDate, NaiveTime};
+use chrono::{DateTime, Utc, NaiveDate};
 
 // Backbone framework imports
 use backbone_core::http::BackboneCrudHandler;
@@ -131,6 +131,13 @@ pub fn create_attendance_clock_read_routes(service: Arc<AttendanceClockService>)
 ///
 /// These routes must NOT be publicly exposed. Wrap them with an auth
 /// middleware before nesting into the application router.
+///
+/// # This is unguarded generic CRUD, not a validated write path
+///
+/// These are plain create/update/patch/delete mutations over the entity row —
+/// they bypass all business invariants. If the module exposes a validated write
+/// service (e.g. a command router over its domain engine), serve THAT instead
+/// for any mutation that must respect domain rules.
 pub fn create_attendance_clock_write_routes(service: Arc<AttendanceClockService>) -> Router {
     BackboneCrudHandler::<AttendanceClockService, AttendanceClock, CreateAttendanceClockDto, UpdateAttendanceClockDto, AttendanceClockResponseDto>::write_routes(
         service,
