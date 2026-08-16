@@ -9,3 +9,7 @@
 
 - attendance_seed
 - attendance_clock_seed
+
+# Newly added seeds (preserve manual order above):
+- attendance_session_seed
+- kiosk_pin_seed
