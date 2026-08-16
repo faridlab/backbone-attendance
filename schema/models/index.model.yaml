@@ -12,6 +12,9 @@
 module: attendance
 version: 2
 schema: attendance
+
+# ADR-0014 company fence (Wave 1 P0 sweep, 2026-08-16): presence records are company-private (pillar-hrms H-3).
+company_fence: strict
 description: "employee presence + clock events"
 
 config:
