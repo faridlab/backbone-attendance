@@ -82,6 +82,45 @@ impl AttendanceRepository {
         .await?;
         Ok(rows.into_iter().map(|(d,)| d).collect())
     }
+
+    /// Overtime HOURS in `[from, to]` (inclusive): `SUM(time_debt->>'overtime_minutes') / 60` over
+    /// the employee's live daily rollups. Attendance is the only writer of the `overtime_minutes`
+    /// key (the shift-aware overlay stamps it into `time_debt`), so attendance is also the only
+    /// reader that should interpret it — consumers get the finished number. `COALESCE` absorbs
+    /// NULL keys (no overtime stamped) into zero, and `GREATEST(..., 0)` guards against a future
+    /// writer stamping negative debt into the same field.
+    ///
+    /// Same read-only, company-scoped posture as [`AttendanceRepository::present_days`]: pool +
+    /// `fetch_one_scoped`, caller wraps in `with_company_scope` / `with_request_scope`.
+    pub async fn overtime_hours(
+        &self,
+        pool: &PgPool,
+        company_id: Uuid,
+        employee_id: Uuid,
+        from: NaiveDate,
+        to: NaiveDate,
+    ) -> Result<rust_decimal::Decimal, sqlx::Error> {
+        // No `fetch_one_scalar_scoped` in backbone_orm — decode the single NUMERIC column as a
+        // 1-tuple via `fetch_one_scoped` and unwrap (same shape as `present_days` above).
+        let (hours,): (rust_decimal::Decimal,) = company_scope::fetch_one_scoped(
+            pool,
+            sqlx::query_as(
+                r#"SELECT GREATEST(
+                       COALESCE(SUM((time_debt->>'overtime_minutes')::numeric), 0) / 60, 0)
+                   FROM attendance.attendances
+                   WHERE company_id = $1
+                     AND employee_id = $2
+                     AND date BETWEEN $3 AND $4
+                     AND (metadata->>'deleted_at') IS NULL"#,
+            )
+            .bind(company_id)
+            .bind(employee_id)
+            .bind(from)
+            .bind(to),
+        )
+        .await?;
+        Ok(hours)
+    }
 }
 
 backbone_core::impl_crud_repository!(AttendanceRepository, Attendance, soft_delete);

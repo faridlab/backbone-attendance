@@ -8,6 +8,7 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use chrono::NaiveDate;
+use rust_decimal::Decimal;
 use uuid::Uuid;
 
 use super::types::*;
@@ -51,6 +52,19 @@ pub trait AttendanceQueryService: Send + Sync {
         from: NaiveDate,
         to: NaiveDate,
     ) -> Result<Vec<NaiveDate>>;
+
+    /// Overtime HOURS worked in `[from, to]` (inclusive) — the sum of the daily rollups'
+    /// `time_debt.overtime_minutes`, converted to hours. Attendance owns the `time_debt` JSON
+    /// semantics because it is the only writer of that key; consumers get one number and never
+    /// parse the JSON themselves. Days without overtime (or before any shift-aware overlay has
+    /// stamped the key) contribute zero, so this degrades to 0 — never negative, never an error.
+    async fn overtime_hours(
+        &self,
+        company_id: Uuid,
+        employee_id: Uuid,
+        from: NaiveDate,
+        to: NaiveDate,
+    ) -> Result<Decimal>;
 
 }
 
