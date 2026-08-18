@@ -110,6 +110,19 @@ impl AttendanceQueryService for AttendanceModule {
             .overtime_hours(&self.db_pool, company_id, employee_id, from, to)
             .await?)
     }
+
+    async fn overtime_stretches(
+        &self,
+        company_id: Uuid,
+        employee_id: Uuid,
+        from: NaiveDate,
+        to: NaiveDate,
+    ) -> Result<Vec<(NaiveDate, rust_decimal::Decimal)>> {
+        Ok(self
+            .attendance_repository
+            .overtime_stretches(&self.db_pool, company_id, employee_id, from, to)
+            .await?)
+    }
 }
 
 // ─── entity → public DTO mapping ───────────────────────────────────────────────

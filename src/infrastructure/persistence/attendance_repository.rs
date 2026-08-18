@@ -121,6 +121,42 @@ impl AttendanceRepository {
         .await?;
         Ok(hours)
     }
+
+    /// Per-day form of [`AttendanceRepository::overtime_hours`]: one `(date, hours)` row per
+    /// date with overtime, `GROUP BY date` over the same predicates (company, employee, range,
+    /// live rows). Returning per-day figures (not the window sum) keeps banded overtime pricing
+    /// correct — the multiplier schedule resets with each day's stretch, so only a per-day walk
+    /// prices every day's first hour at the opening band. Days with zero/negative debt are
+    /// filtered out here so callers never see empty stretch entries.
+    pub async fn overtime_stretches(
+        &self,
+        pool: &PgPool,
+        company_id: Uuid,
+        employee_id: Uuid,
+        from: NaiveDate,
+        to: NaiveDate,
+    ) -> Result<Vec<(NaiveDate, rust_decimal::Decimal)>, sqlx::Error> {
+        let mut rows: Vec<(NaiveDate, rust_decimal::Decimal)> = company_scope::fetch_all_scoped(
+            pool,
+            sqlx::query_as(
+                r#"SELECT date, GREATEST(SUM((time_debt->>'overtime_minutes')::numeric) / 60, 0)
+                   FROM attendance.attendances
+                   WHERE company_id = $1
+                     AND employee_id = $2
+                     AND date BETWEEN $3 AND $4
+                     AND (metadata->>'deleted_at') IS NULL
+                   GROUP BY date
+                   ORDER BY date"#,
+            )
+            .bind(company_id)
+            .bind(employee_id)
+            .bind(from)
+            .bind(to),
+        )
+        .await?;
+        rows.retain(|(_, hours)| *hours > rust_decimal::Decimal::ZERO);
+        Ok(rows)
+    }
 }
 
 backbone_core::impl_crud_repository!(AttendanceRepository, Attendance, soft_delete);

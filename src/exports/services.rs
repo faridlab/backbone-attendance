@@ -66,6 +66,21 @@ pub trait AttendanceQueryService: Send + Sync {
         to: NaiveDate,
     ) -> Result<Decimal>;
 
+    /// The same overtime data as [`AttendanceQueryService::overtime_hours`], but PER DAY:
+    /// one `(date, hours)` pair per date with overtime, ordered by date. Banded pricing
+    /// schedules (an overtime multiplier that resets with each day's first hour) are only
+    /// correct per day — a window-summed figure prices the period's first hour at the opening
+    /// band and mis-prices every one-hour-per-day pattern — so consumers that price overtime
+    /// against a band table must use this form. Empty when the employee has no overtime days
+    /// in range; never negative, never an error.
+    async fn overtime_stretches(
+        &self,
+        company_id: Uuid,
+        employee_id: Uuid,
+        from: NaiveDate,
+        to: NaiveDate,
+    ) -> Result<Vec<(NaiveDate, Decimal)>>;
+
 }
 
 // ============================================================================
