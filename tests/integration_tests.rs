@@ -65,4 +65,3 @@ async fn test_kiosk_pin_api() {
         panic!("{} tests failed", failed.len());
     }
 }
-

@@ -34,9 +34,6 @@ use crate::domain::entity::PunchSource;
 #[serde(rename_all = "camelCase")]
 pub struct CreateAttendanceSessionDto {
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
-    #[serde(alias = "company_id")]
-    pub company_id: Uuid,
-    #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     #[serde(alias = "employee_id")]
     pub employee_id: Uuid,
     #[cfg_attr(feature = "openapi", schema(example = "2024-01-01"))]
@@ -64,9 +61,6 @@ pub struct CreateAttendanceSessionDto {
 #[cfg_attr(feature = "validation", derive(Validate))]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateAttendanceSessionDto {
-    #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
-    #[serde(alias = "company_id")]
-    pub company_id: Uuid,
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     #[serde(alias = "employee_id")]
     pub employee_id: Uuid,
@@ -96,9 +90,6 @@ pub struct UpdateAttendanceSessionDto {
 #[serde(rename_all = "camelCase")]
 pub struct PatchAttendanceSessionDto {
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
-    #[serde(skip_serializing_if = "Option::is_none", alias = "company_id")]
-    pub company_id: Option<Uuid>,
-    #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     #[serde(skip_serializing_if = "Option::is_none", alias = "employee_id")]
     pub employee_id: Option<Uuid>,
     #[cfg_attr(feature = "openapi", schema(example = "2024-01-01"))]
@@ -118,7 +109,7 @@ pub struct PatchAttendanceSessionDto {
 impl PatchAttendanceSessionDto {
     /// Check if any field is set
     pub fn has_changes(&self) -> bool {
-        self.company_id.is_some() || self.employee_id.is_some() || self.date.is_some() || self.check_in.is_some() || self.check_out.is_some() || self.source.is_some() || self.correction_reason.is_some()
+        self.employee_id.is_some() || self.date.is_some() || self.check_in.is_some() || self.check_out.is_some() || self.source.is_some() || self.correction_reason.is_some()
     }
 }
 
@@ -136,8 +127,6 @@ impl PatchAttendanceSessionDto {
 pub struct AttendanceSessionResponseDto {
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     pub id: Uuid,
-    #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
-    pub company_id: Uuid,
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     pub employee_id: Uuid,
     #[cfg_attr(feature = "openapi", schema(example = "2024-01-01"))]
@@ -204,9 +193,9 @@ impl AttendanceSessionListResponseDto {
 #[serde(rename_all = "camelCase")]
 pub struct AttendanceSessionSummaryDto {
     pub id: Uuid,
-    pub company_id: Uuid,
     pub employee_id: Uuid,
     pub date: NaiveDate,
+    pub check_in: DateTime<Utc>,
     pub created_at: Option<DateTime<Utc>>,
 }
 
@@ -218,7 +207,6 @@ impl From<AttendanceSession> for AttendanceSessionResponseDto {
     fn from(entity: AttendanceSession) -> Self {
         Self {
             id: entity.id,
-            company_id: entity.company_id,
             employee_id: entity.employee_id,
             date: entity.date,
             check_in: entity.check_in,
@@ -235,9 +223,9 @@ impl From<AttendanceSession> for AttendanceSessionSummaryDto {
         let created_at = backbone_core::PersistentEntity::created_at(&entity);
         Self {
             id: entity.id,
-            company_id: entity.company_id,
             employee_id: entity.employee_id,
             date: entity.date,
+            check_in: entity.check_in,
             created_at,
         }
     }
@@ -247,7 +235,6 @@ impl From<CreateAttendanceSessionDto> for AttendanceSession {
     fn from(dto: CreateAttendanceSessionDto) -> Self {
         Self {
             id: Uuid::new_v4(),
-            company_id: dto.company_id,
             employee_id: dto.employee_id,
             date: dto.date,
             check_in: dto.check_in,
@@ -263,7 +250,6 @@ impl From<&AttendanceSession> for AttendanceSessionResponseDto {
     fn from(entity: &AttendanceSession) -> Self {
         Self {
             id: entity.id.clone(),
-            company_id: entity.company_id.clone(),
             employee_id: entity.employee_id.clone(),
             date: entity.date.clone(),
             check_in: entity.check_in.clone(),
@@ -283,7 +269,6 @@ impl backbone_core::FromCreateDto<CreateAttendanceSessionDto> for AttendanceSess
 
 impl backbone_core::ApplyUpdateDto<UpdateAttendanceSessionDto> for AttendanceSession {
     fn apply_update(mut self, dto: UpdateAttendanceSessionDto) -> backbone_core::ServiceResult<Self> {
-        self.company_id = dto.company_id;
         self.employee_id = dto.employee_id;
         self.date = dto.date;
         self.check_in = dto.check_in;
@@ -302,4 +287,3 @@ impl backbone_core::ApplyUpdateDto<UpdateAttendanceSessionDto> for AttendanceSes
 // Add custom DTOs specific to AttendanceSession here.
 // This section will be preserved during regeneration.
 // >>> END CUSTOM DTOs
-

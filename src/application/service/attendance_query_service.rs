@@ -10,9 +10,10 @@
 //! - the **custom read-port** `present_days` delegates to [`AttendanceRepository::present_days`],
 //!   which holds the hand-written SQL (4-layer rule: services orchestrate, repos hold SQL).
 //!
-//! Company scoping (ADR-0008) is NOT done here — the caller (HTTP composition root via
-//! `with_request_scope`, or a job via `with_company_scope`) sets it; `find_by_id` and the repo's
-//! `company_scope::fetch_all_scoped` both honour the task-local RLS fence.
+//! Tenancy: none, by design (ADR-0029) — the module carries no tenant key; reads are scoped by
+//! the COMPOSING service's fence (the repo relays the ambient org scope). The read-port methods
+//! still ACCEPT a `company_id` argument as a legacy twin for unstripped consumers: it is ignored
+//! here (never a query predicate) and will be removed when those consumers re-point.
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -87,40 +88,40 @@ impl AttendanceQueryService for AttendanceModule {
 
     async fn present_days(
         &self,
-        company_id: Uuid,
+        _company_id: Uuid, // legacy twin (ADR-0029): ignored — scoping is the composer's fence
         employee_id: Uuid,
         from: NaiveDate,
         to: NaiveDate,
     ) -> Result<Vec<NaiveDate>> {
         Ok(self
             .attendance_repository
-            .present_days(&self.db_pool, company_id, employee_id, from, to)
+            .present_days(&self.db_pool, employee_id, from, to)
             .await?)
     }
 
     async fn overtime_hours(
         &self,
-        company_id: Uuid,
+        _company_id: Uuid, // legacy twin (ADR-0029): ignored — scoping is the composer's fence
         employee_id: Uuid,
         from: NaiveDate,
         to: NaiveDate,
     ) -> Result<rust_decimal::Decimal> {
         Ok(self
             .attendance_repository
-            .overtime_hours(&self.db_pool, company_id, employee_id, from, to)
+            .overtime_hours(&self.db_pool, employee_id, from, to)
             .await?)
     }
 
     async fn overtime_stretches(
         &self,
-        company_id: Uuid,
+        _company_id: Uuid, // legacy twin (ADR-0029): ignored — scoping is the composer's fence
         employee_id: Uuid,
         from: NaiveDate,
         to: NaiveDate,
     ) -> Result<Vec<(NaiveDate, rust_decimal::Decimal)>> {
         Ok(self
             .attendance_repository
-            .overtime_stretches(&self.db_pool, company_id, employee_id, from, to)
+            .overtime_stretches(&self.db_pool, employee_id, from, to)
             .await?)
     }
 }
@@ -134,7 +135,6 @@ impl AttendanceQueryService for AttendanceModule {
 fn attendance_to_dto(e: Attendance) -> Result<AttendanceDto> {
     Ok(AttendanceDto {
         id: AttendanceId(e.id),
-        company_id: e.company_id,
         employee_id: e.employee_id,
         date: e.date,
         schedule: e.schedule,
@@ -149,7 +149,6 @@ fn attendance_to_dto(e: Attendance) -> Result<AttendanceDto> {
 fn attendance_clock_to_dto(e: AttendanceClock) -> Result<AttendanceClockDto> {
     Ok(AttendanceClockDto {
         id: AttendanceClockId(e.id),
-        company_id: e.company_id,
         session_id: e.session_id,
         employee_id: e.employee_id,
         date: e.date,

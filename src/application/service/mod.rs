@@ -9,6 +9,9 @@ pub use error::{ServiceError, ServiceResult};
 
 pub mod attendance_service;
 pub mod attendance_clock_service;
+pub mod attendance_session_service;
+pub mod kiosk_pin_service;
+
 // <<< CUSTOM
 // Hand-written `AttendanceQueryService` impl (user-owned file). Standard lookups delegate to the
 // GenericCrudService aliases above; the `present_days` read-port delegates to the repo's SQL.
@@ -16,19 +19,15 @@ pub mod attendance_query_service;
 // The validated write path (punch in/out, kiosk Tier B PIN, session corrections) — H-3.
 pub mod attendance_write_service;
 // END CUSTOM
-pub mod attendance_session_service;
-pub mod kiosk_pin_service;
 
+pub use attendance_service::AttendanceService;
+pub use attendance_clock_service::AttendanceClockService;
+pub use attendance_session_service::AttendanceSessionService;
+pub use kiosk_pin_service::KioskPinService;
 // <<< CUSTOM
 pub use attendance_write_service::{
     lockout_until, pin_is_wellformed, validate_punch_time, AttendanceWriteError,
     AttendanceWriteService, PunchOutcome, PIN_ATTEMPT_SPACING, PIN_LOCK_BASE, PIN_LOCK_MAX,
     PIN_MAX_ATTEMPTS, PUNCH_CLOCK_SKEW,
 };
-// END CUSTOM
-pub use attendance_service::AttendanceService;
-pub use attendance_clock_service::AttendanceClockService;
-pub use attendance_session_service::AttendanceSessionService;
-pub use kiosk_pin_service::KioskPinService;
-// <<< CUSTOM
 // END CUSTOM

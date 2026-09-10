@@ -5,6 +5,11 @@
 //! below holds the hand-written Attendance read SQL (4-layer rule: services orchestrate, repos hold
 //! SQL).
 //!
+//! Tenancy: none, by design (ADR-0029). No query here carries a tenant predicate — the reads are
+//! scoped by the COMPOSING service's fence: when the request carries an ambient org scope it is
+//! relayed onto a short read transaction, so the decorator's row-level rules govern what these
+//! queries can see; unfenced deployments read the pool plain.
+//!
 //! Thin newtype over `backbone_orm::GenericCrudRepository<Attendance, backbone_orm::SoftDelete>`.
 //! All standard CRUD methods are available via `Deref`.
 
@@ -12,7 +17,7 @@ use chrono::NaiveDate;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use backbone_orm::company_scope;
+use backbone_orm::org_scope;
 
 use crate::domain::entity::Attendance;
 
@@ -47,39 +52,43 @@ impl AttendanceRepository {
     /// (`absences = working_days − present_days − paid_leave_days`), so this deliberately does NOT
     /// join leave or schedule — attendance only.
     ///
-    /// Read-only, company-scoped: takes the pool and runs `fetch_all_scoped` so the RLS fence
-    /// (ADR-0008) applies. The caller wraps this in `with_company_scope(Some(company_id))` (or the
-    /// HTTP composition root's `with_request_scope`) — otherwise it fails closed (0 rows).
+    /// Read-only, tenant-agnostic (ADR-0029): takes the pool; when the request carries an ambient
+    /// org scope it is relayed onto a short read transaction, so the composing service's fence
+    /// applies (a foreign employee id simply matches zero rows); unfenced deployments read the
+    /// pool plain. (backbone_orm's org scope offers no fetch-all helper, so the scoped path is a
+    /// short read-only transaction here.)
     ///
     /// Soft-delete lives in the `metadata` JSONB column (`deleted_at` key); the `(metadata->>'deleted_at')
     /// IS NULL` predicate mirrors every other non-deleted read in this module.
     pub async fn present_days(
         &self,
         pool: &PgPool,
-        company_id: Uuid,
         employee_id: Uuid,
         from: NaiveDate,
         to: NaiveDate,
     ) -> Result<Vec<NaiveDate>, sqlx::Error> {
-        // No `fetch_all_scalar_scoped` exists in backbone_orm, so decode the single DATE column as a
-        // 1-tuple row via `fetch_all_scoped` and unwrap the tuple. `query_as::<_, (NaiveDate,)>` is
+        // Decode the single DATE column as a 1-tuple row; `query_as::<_, (NaiveDate,)>` is
         // the documented shape for a single-column typed read.
-        let rows: Vec<(NaiveDate,)> = company_scope::fetch_all_scoped(
-            pool,
-            sqlx::query_as(
-                r#"SELECT date FROM attendance.attendances
-                   WHERE company_id = $1
-                     AND employee_id = $2
-                     AND date BETWEEN $3 AND $4
-                     AND (metadata->>'deleted_at') IS NULL
-                   ORDER BY date"#,
-            )
-            .bind(company_id)
-            .bind(employee_id)
-            .bind(from)
-            .bind(to),
+        let query = sqlx::query_as::<_, (NaiveDate,)>(
+            r#"SELECT date FROM attendance.attendances
+               WHERE employee_id = $1
+                 AND date BETWEEN $2 AND $3
+                 AND (metadata->>'deleted_at') IS NULL
+               ORDER BY date"#,
         )
-        .await?;
+        .bind(employee_id)
+        .bind(from)
+        .bind(to);
+
+        let rows = if let Some(scope) = org_scope::current_org_scope() {
+            let mut tx = pool.begin().await?;
+            org_scope::bind_org_scope_on(&mut tx, &scope).await?;
+            let rows = query.fetch_all(&mut *tx).await?;
+            tx.commit().await?; // read-only: nothing but the relayed scope to close out
+            rows
+        } else {
+            query.fetch_all(pool).await?
+        };
         Ok(rows.into_iter().map(|(d,)| d).collect())
     }
 
@@ -90,40 +99,43 @@ impl AttendanceRepository {
     /// NULL keys (no overtime stamped) into zero, and `GREATEST(..., 0)` guards against a future
     /// writer stamping negative debt into the same field.
     ///
-    /// Same read-only, company-scoped posture as [`AttendanceRepository::present_days`]: pool +
-    /// `fetch_one_scoped`, caller wraps in `with_company_scope` / `with_request_scope`.
+    /// Same read-only, tenant-agnostic posture as [`AttendanceRepository::present_days`]: pool +
+    /// relayed ambient org scope (ADR-0029).
     pub async fn overtime_hours(
         &self,
         pool: &PgPool,
-        company_id: Uuid,
         employee_id: Uuid,
         from: NaiveDate,
         to: NaiveDate,
     ) -> Result<rust_decimal::Decimal, sqlx::Error> {
-        // No `fetch_one_scalar_scoped` in backbone_orm — decode the single NUMERIC column as a
-        // 1-tuple via `fetch_one_scoped` and unwrap (same shape as `present_days` above).
-        let (hours,): (rust_decimal::Decimal,) = company_scope::fetch_one_scoped(
-            pool,
-            sqlx::query_as(
-                r#"SELECT GREATEST(
-                       COALESCE(SUM((time_debt->>'overtime_minutes')::numeric), 0) / 60, 0)
-                   FROM attendance.attendances
-                   WHERE company_id = $1
-                     AND employee_id = $2
-                     AND date BETWEEN $3 AND $4
-                     AND (metadata->>'deleted_at') IS NULL"#,
-            )
-            .bind(company_id)
-            .bind(employee_id)
-            .bind(from)
-            .bind(to),
+        // Decode the single NUMERIC column as a 1-tuple and unwrap (same shape as `present_days`).
+        // A bare aggregate always yields exactly one row, so `fetch_one` matches both branches.
+        let query = sqlx::query_as::<_, (rust_decimal::Decimal,)>(
+            r#"SELECT GREATEST(
+                   COALESCE(SUM((time_debt->>'overtime_minutes')::numeric), 0) / 60, 0)
+               FROM attendance.attendances
+               WHERE employee_id = $1
+                 AND date BETWEEN $2 AND $3
+                 AND (metadata->>'deleted_at') IS NULL"#,
         )
-        .await?;
+        .bind(employee_id)
+        .bind(from)
+        .bind(to);
+
+        let (hours,) = if let Some(scope) = org_scope::current_org_scope() {
+            let mut tx = pool.begin().await?;
+            org_scope::bind_org_scope_on(&mut tx, &scope).await?;
+            let row = query.fetch_one(&mut *tx).await?;
+            tx.commit().await?; // read-only: nothing but the relayed scope to close out
+            row
+        } else {
+            query.fetch_one(pool).await?
+        };
         Ok(hours)
     }
 
     /// Per-day form of [`AttendanceRepository::overtime_hours`]: one `(date, hours)` row per
-    /// date with overtime, `GROUP BY date` over the same predicates (company, employee, range,
+    /// date with overtime, `GROUP BY date` over the same predicates (employee, range,
     /// live rows). Returning per-day figures (not the window sum) keeps banded overtime pricing
     /// correct — the multiplier schedule resets with each day's stretch, so only a per-day walk
     /// prices every day's first hour at the opening band. Days with zero/negative debt are
@@ -131,29 +143,32 @@ impl AttendanceRepository {
     pub async fn overtime_stretches(
         &self,
         pool: &PgPool,
-        company_id: Uuid,
         employee_id: Uuid,
         from: NaiveDate,
         to: NaiveDate,
     ) -> Result<Vec<(NaiveDate, rust_decimal::Decimal)>, sqlx::Error> {
-        let mut rows: Vec<(NaiveDate, rust_decimal::Decimal)> = company_scope::fetch_all_scoped(
-            pool,
-            sqlx::query_as(
-                r#"SELECT date, GREATEST(SUM((time_debt->>'overtime_minutes')::numeric) / 60, 0)
-                   FROM attendance.attendances
-                   WHERE company_id = $1
-                     AND employee_id = $2
-                     AND date BETWEEN $3 AND $4
-                     AND (metadata->>'deleted_at') IS NULL
-                   GROUP BY date
-                   ORDER BY date"#,
-            )
-            .bind(company_id)
-            .bind(employee_id)
-            .bind(from)
-            .bind(to),
+        let query = sqlx::query_as::<_, (NaiveDate, rust_decimal::Decimal)>(
+            r#"SELECT date, GREATEST(SUM((time_debt->>'overtime_minutes')::numeric) / 60, 0)
+               FROM attendance.attendances
+               WHERE employee_id = $1
+                 AND date BETWEEN $2 AND $3
+                 AND (metadata->>'deleted_at') IS NULL
+               GROUP BY date
+               ORDER BY date"#,
         )
-        .await?;
+        .bind(employee_id)
+        .bind(from)
+        .bind(to);
+
+        let mut rows = if let Some(scope) = org_scope::current_org_scope() {
+            let mut tx = pool.begin().await?;
+            org_scope::bind_org_scope_on(&mut tx, &scope).await?;
+            let rows = query.fetch_all(&mut *tx).await?;
+            tx.commit().await?; // read-only: nothing but the relayed scope to close out
+            rows
+        } else {
+            query.fetch_all(pool).await?
+        };
         rows.retain(|(_, hours)| *hours > rust_decimal::Decimal::ZERO);
         Ok(rows)
     }

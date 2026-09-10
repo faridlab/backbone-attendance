@@ -44,7 +44,6 @@ pub struct AttendanceSessionPaginatedResult {
 /// Filter parameters for list queries
 #[derive(Debug, Clone, Default)]
 pub struct AttendanceSessionFilter {
-    pub company_id: Option<Uuid>,
     pub employee_id: Option<Uuid>,
     pub source: Option<PunchSource>,
     pub correction_reason: Option<String>,
@@ -53,7 +52,7 @@ pub struct AttendanceSessionFilter {
 impl AttendanceSessionFilter {
     /// Check if any filter is set
     pub fn has_filters(&self) -> bool {
-        self.company_id.is_some() || self.employee_id.is_some() || self.source.is_some() || self.correction_reason.is_some()
+        self.employee_id.is_some() || self.source.is_some() || self.correction_reason.is_some()
     }
 }
 

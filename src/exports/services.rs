@@ -44,7 +44,11 @@ pub trait AttendanceQueryService: Send + Sync {
     /// The dates in `[from, to]` (inclusive) on which the employee HAS an attendance record —
     /// i.e. was present. Attendance owns "presence"; absences are derived by the consumer
     /// (`absences = working_days − present_days − paid_leave_days`), so this does NOT join leave
-    /// or schedule — attendance only. Company-scoped via RLS.
+    /// or schedule — attendance only.
+    ///
+    /// `company_id` is a LEGACY TWIN (ADR-0029): the module carries no tenant key, so the
+    /// argument is accepted for compatibility with unstripped consumers and IGNORED — it never
+    /// scopes the read. Row visibility follows the composing service's org fence.
     async fn present_days(
         &self,
         company_id: Uuid,
@@ -58,6 +62,9 @@ pub trait AttendanceQueryService: Send + Sync {
     /// semantics because it is the only writer of that key; consumers get one number and never
     /// parse the JSON themselves. Days without overtime (or before any shift-aware overlay has
     /// stamped the key) contribute zero, so this degrades to 0 — never negative, never an error.
+    ///
+    /// `company_id` is a LEGACY TWIN (ADR-0029): accepted for compatibility, ignored — the read
+    /// is scoped by the composing service's org fence, never by this argument.
     async fn overtime_hours(
         &self,
         company_id: Uuid,
@@ -73,6 +80,9 @@ pub trait AttendanceQueryService: Send + Sync {
     /// band and mis-prices every one-hour-per-day pattern — so consumers that price overtime
     /// against a band table must use this form. Empty when the employee has no overtime days
     /// in range; never negative, never an error.
+    ///
+    /// `company_id` is a LEGACY TWIN (ADR-0029): accepted for compatibility, ignored — the read
+    /// is scoped by the composing service's org fence, never by this argument.
     async fn overtime_stretches(
         &self,
         company_id: Uuid,

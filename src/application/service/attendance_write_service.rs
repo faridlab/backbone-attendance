@@ -1,14 +1,19 @@
 //! `AttendanceWriteService` — the validated punch / session / kiosk-PIN write path (H-3).
 //!
-//! Hand-written (user-owned — see `metaphor.codegen.yaml`). Mirrors the backbone-party v0.3.3
-//! write-service shape: a concrete struct, an error enum carrying `code()`/`http_status()`,
-//! transaction-per-operation with `company_scope::bind_company_on`, and all SQL delegated to
+//! Hand-written (user-owned — see `metaphor.codegen.yaml`). A concrete struct, an error enum
+//! carrying `code()`/`http_status()`, transaction-per-operation, and all SQL delegated to
 //! [`crate::infrastructure::persistence::AttendanceWriteRepository`].
 //!
+//! Tenancy: none, by design (ADR-0029). The module is tenant-agnostic; every transaction
+//! relays the ambient org scope the composing service bound onto the request
+//! ([`backbone_orm::org_scope::current_org_scope`]), so the decorator's fence applies to
+//! each statement. The composing service owns installing that scope — including for the
+//! kiosk routes, whose device bearer the host resolves to a unit scope.
+//!
 //! Trust model (ADR-0018):
-//! - The **kiosk device** authenticates with the company bearer (Tier A) at the host; the
-//!   **human** at the terminal authenticates with badge + PIN (Tier B — this file). Per-IP
-//!   throttling is composed at the host's global rate limiter, not here.
+//! - The **kiosk device** authenticates with a Tier A bearer at the host; the **human** at
+//!   the terminal authenticates with badge + PIN (Tier B — this file). Per-IP throttling is
+//!   composed at the host's global rate limiter, not here.
 //! - PINs are argon2id hashes via `backbone_auth::PasswordService` (same parameters as login
 //!   passwords — no separate crypto to audit). The hash never leaves this service.
 //! - Per-identity throttle: a 1s minimum spacing between attempts plus an escalating lockout
@@ -24,7 +29,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use backbone_auth::password::PasswordService;
-use backbone_orm::company_scope;
+use backbone_orm::org_scope;
 
 use crate::domain::entity::{PunchDirection, PunchSource};
 use crate::infrastructure::persistence::{AttendanceWriteRepository, SessionRow};
@@ -214,7 +219,6 @@ impl AttendanceWriteService {
     /// back on that branch); everything else errors atomically.
     pub async fn kiosk_punch(
         &self,
-        company: Uuid,
         badge_code: &str,
         pin: &str,
         at: Option<DateTime<Utc>>,
@@ -223,11 +227,13 @@ impl AttendanceWriteService {
         let punched_at = validate_punch_time(at, None, now)?;
 
         let mut tx = self.pool.begin().await?;
-        company_scope::bind_company_on(&mut tx, company).await?;
+        if let Some(scope) = org_scope::current_org_scope() {
+            org_scope::bind_org_scope_on(&mut *tx, &scope).await?;
+        }
 
         let pin_row = self
             .repo
-            .find_live_pin_by_badge(&mut tx, company, badge_code)
+            .find_live_pin_by_badge(&mut tx, badge_code)
             .await?
             .ok_or(AttendanceWriteError::BadgeNotFound)?;
 
@@ -269,7 +275,7 @@ impl AttendanceWriteService {
         self.repo.record_pin_success(&mut tx, pin_row.id, now).await?;
 
         let outcome = self
-            .auto_punch_on(&mut tx, company, pin_row.employee_id, punched_at, PunchSource::Kiosk)
+            .auto_punch_on(&mut tx, pin_row.employee_id, punched_at, PunchSource::Kiosk)
             .await?;
         tx.commit().await?;
         Ok(outcome)
@@ -281,7 +287,6 @@ impl AttendanceWriteService {
     /// (resolved by the host from the user token); admin punches may target any employee.
     pub async fn punch(
         &self,
-        company: Uuid,
         employee_id: Uuid,
         direction: PunchDirection,
         source: PunchSource,
@@ -292,18 +297,20 @@ impl AttendanceWriteService {
         let punched_at = validate_punch_time(at, correction_reason, now)?;
 
         let mut tx = self.pool.begin().await?;
-        company_scope::bind_company_on(&mut tx, company).await?;
+        if let Some(scope) = org_scope::current_org_scope() {
+            org_scope::bind_org_scope_on(&mut *tx, &scope).await?;
+        }
 
-        let open = self.repo.find_open_session(&mut tx, company, employee_id).await?;
+        let open = self.repo.find_open_session(&mut tx, employee_id).await?;
 
         let outcome = match (direction, open) {
             (PunchDirection::In, Some(_)) => Err(AttendanceWriteError::SessionStillOpen),
             (PunchDirection::In, None) => {
-                self.open_session_on(&mut tx, company, employee_id, punched_at, source, correction_reason)
+                self.open_session_on(&mut tx, employee_id, punched_at, source, correction_reason)
                     .await
             }
             (PunchDirection::Out, Some(session)) => {
-                self.close_session_on(&mut tx, company, session, punched_at, correction_reason)
+                self.close_session_on(&mut tx, session, punched_at, correction_reason)
                     .await
             }
             (PunchDirection::Out, None) => Err(AttendanceWriteError::NoOpenSession),
@@ -321,7 +328,6 @@ impl AttendanceWriteService {
     /// midnight, which must move the presence day with it.
     pub async fn correct_session(
         &self,
-        company: Uuid,
         session_id: Uuid,
         check_in: DateTime<Utc>,
         check_out: Option<DateTime<Utc>>,
@@ -338,17 +344,19 @@ impl AttendanceWriteService {
         }
 
         let mut tx = self.pool.begin().await?;
-        company_scope::bind_company_on(&mut tx, company).await?;
+        if let Some(scope) = org_scope::current_org_scope() {
+            org_scope::bind_org_scope_on(&mut *tx, &scope).await?;
+        }
 
         let old = self
             .repo
-            .get_session(&mut tx, company, session_id)
+            .get_session(&mut tx, session_id)
             .await?
             .ok_or(AttendanceWriteError::SessionNotFound)?;
 
         let updated = self
             .repo
-            .correct_session(&mut tx, company, session_id, check_in, check_out, reason.trim(), now)
+            .correct_session(&mut tx, session_id, check_in, check_out, reason.trim(), now)
             .await?
             .ok_or(AttendanceWriteError::SessionNotFound)?;
 
@@ -356,11 +364,11 @@ impl AttendanceWriteService {
         // the old day may now have no sessions and must stop counting as present).
         if old.date != updated.date {
             self.repo
-                .refresh_rollup_from_sessions(&mut tx, company, updated.employee_id, old.date, now)
+                .refresh_rollup_from_sessions(&mut tx, updated.employee_id, old.date, now)
                 .await?;
         }
         self.repo
-            .refresh_rollup_from_sessions(&mut tx, company, updated.employee_id, updated.date, now)
+            .refresh_rollup_from_sessions(&mut tx, updated.employee_id, updated.date, now)
             .await?;
 
         tx.commit().await?;
@@ -373,7 +381,6 @@ impl AttendanceWriteService {
     /// code can change along with the hash.
     pub async fn issue_pin(
         &self,
-        company: Uuid,
         employee_id: Uuid,
         badge_code: &str,
         pin: &str,
@@ -388,10 +395,12 @@ impl AttendanceWriteService {
         })?;
 
         let mut tx = self.pool.begin().await?;
-        company_scope::bind_company_on(&mut tx, company).await?;
+        if let Some(scope) = org_scope::current_org_scope() {
+            org_scope::bind_org_scope_on(&mut *tx, &scope).await?;
+        }
         let id = self
             .repo
-            .issue_pin(&mut tx, company, employee_id, badge_code, &hash, expires_at, now)
+            .issue_pin(&mut tx, employee_id, badge_code, &hash, expires_at, now)
             .await?;
         tx.commit().await?;
         Ok(id)
@@ -400,7 +409,6 @@ impl AttendanceWriteService {
     /// Rotate the PIN hash, keeping the badge code. Resets any lockout.
     pub async fn rotate_pin(
         &self,
-        company: Uuid,
         employee_id: Uuid,
         pin: &str,
     ) -> Result<(), AttendanceWriteError> {
@@ -413,31 +421,37 @@ impl AttendanceWriteService {
         })?;
 
         let mut tx = self.pool.begin().await?;
-        company_scope::bind_company_on(&mut tx, company).await?;
+        if let Some(scope) = org_scope::current_org_scope() {
+            org_scope::bind_org_scope_on(&mut *tx, &scope).await?;
+        }
         let replaced = self
             .repo
-            .replace_pin_hash(&mut tx, company, employee_id, &hash, now)
+            .replace_pin_hash(&mut tx, employee_id, &hash, now)
             .await?;
         tx.commit().await?;
         replaced.then_some(()).ok_or(AttendanceWriteError::PinNotFound)
     }
 
     /// Clear a lockout (admin unlock at the terminal — the credential itself is unchanged).
-    pub async fn unlock_pin(&self, company: Uuid, employee_id: Uuid) -> Result<(), AttendanceWriteError> {
+    pub async fn unlock_pin(&self, employee_id: Uuid) -> Result<(), AttendanceWriteError> {
         let now = Utc::now();
         let mut tx = self.pool.begin().await?;
-        company_scope::bind_company_on(&mut tx, company).await?;
-        let unlocked = self.repo.unlock_pin(&mut tx, company, employee_id, now).await?;
+        if let Some(scope) = org_scope::current_org_scope() {
+            org_scope::bind_org_scope_on(&mut *tx, &scope).await?;
+        }
+        let unlocked = self.repo.unlock_pin(&mut tx, employee_id, now).await?;
         tx.commit().await?;
         unlocked.then_some(()).ok_or(AttendanceWriteError::PinNotFound)
     }
 
     /// Revoke the employee's live PIN — badge stops working at the terminal immediately.
-    pub async fn revoke_pin(&self, company: Uuid, employee_id: Uuid) -> Result<(), AttendanceWriteError> {
+    pub async fn revoke_pin(&self, employee_id: Uuid) -> Result<(), AttendanceWriteError> {
         let now = Utc::now();
         let mut tx = self.pool.begin().await?;
-        company_scope::bind_company_on(&mut tx, company).await?;
-        let revoked = self.repo.revoke_pin(&mut tx, company, employee_id, now).await?;
+        if let Some(scope) = org_scope::current_org_scope() {
+            org_scope::bind_org_scope_on(&mut *tx, &scope).await?;
+        }
+        let revoked = self.repo.revoke_pin(&mut tx, employee_id, now).await?;
         tx.commit().await?;
         revoked.then_some(()).ok_or(AttendanceWriteError::PinNotFound)
     }
@@ -448,18 +462,17 @@ impl AttendanceWriteService {
     async fn auto_punch_on(
         &self,
         conn: &mut sqlx::PgConnection,
-        company: Uuid,
         employee_id: Uuid,
         punched_at: DateTime<Utc>,
         source: PunchSource,
     ) -> Result<PunchOutcome, AttendanceWriteError> {
-        let open = self.repo.find_open_session(conn, company, employee_id).await?;
+        let open = self.repo.find_open_session(conn, employee_id).await?;
         match open {
             Some(session) => {
-                self.close_session_on(conn, company, session, punched_at, None).await
+                self.close_session_on(conn, session, punched_at, None).await
             }
             None => {
-                self.open_session_on(conn, company, employee_id, punched_at, source, None).await
+                self.open_session_on(conn, employee_id, punched_at, source, None).await
             }
         }
     }
@@ -467,7 +480,6 @@ impl AttendanceWriteService {
     async fn open_session_on(
         &self,
         conn: &mut sqlx::PgConnection,
-        company: Uuid,
         employee_id: Uuid,
         check_in: DateTime<Utc>,
         source: PunchSource,
@@ -480,14 +492,14 @@ impl AttendanceWriteService {
 
         let session = self
             .repo
-            .insert_session(&mut *conn, company, employee_id, business_date, check_in, &source.to_string(), correction_reason, now)
+            .insert_session(&mut *conn, employee_id, business_date, check_in, &source.to_string(), correction_reason, now)
             .await
             .map_err(map_overlap)?;
         self.repo
-            .insert_clock_event(&mut *conn, company, session.id, employee_id, business_date, check_in, "in", now)
+            .insert_clock_event(&mut *conn, session.id, employee_id, business_date, check_in, "in", now)
             .await?;
         self.repo
-            .upsert_rollup_times(&mut *conn, company, employee_id, business_date, Some(check_in.time()), None, now)
+            .upsert_rollup_times(&mut *conn, employee_id, business_date, Some(check_in.time()), None, now)
             .await?;
 
         Ok(SessionRow::into_outcome(session, PunchDirection::In))
@@ -496,7 +508,6 @@ impl AttendanceWriteService {
     async fn close_session_on(
         &self,
         conn: &mut sqlx::PgConnection,
-        company: Uuid,
         session: SessionRow,
         check_out: DateTime<Utc>,
         correction_reason: Option<&str>,
@@ -508,16 +519,16 @@ impl AttendanceWriteService {
 
         let closed = self
             .repo
-            .close_session(&mut *conn, company, session.id, check_out, correction_reason, now)
+            .close_session(&mut *conn, session.id, check_out, correction_reason, now)
             .await
             .map_err(map_overlap)?
             .ok_or(AttendanceWriteError::SessionAlreadyClosed)?;
 
         self.repo
-            .insert_clock_event(&mut *conn, company, closed.id, closed.employee_id, closed.date, check_out, "out", now)
+            .insert_clock_event(&mut *conn, closed.id, closed.employee_id, closed.date, check_out, "out", now)
             .await?;
         self.repo
-            .upsert_rollup_times(&mut *conn, company, closed.employee_id, closed.date, None, Some(check_out.time()), now)
+            .upsert_rollup_times(&mut *conn, closed.employee_id, closed.date, None, Some(check_out.time()), now)
             .await?;
 
         Ok(SessionRow::into_outcome(closed, PunchDirection::Out))

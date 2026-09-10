@@ -33,9 +33,6 @@ use crate::domain::entity::AuditMetadata;
 #[serde(rename_all = "camelCase")]
 pub struct CreateKioskPinDto {
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
-    #[serde(alias = "company_id")]
-    pub company_id: Uuid,
-    #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     #[serde(alias = "employee_id")]
     pub employee_id: Uuid,
     #[cfg_attr(feature = "openapi", schema(example = "example"))]
@@ -68,9 +65,6 @@ pub struct CreateKioskPinDto {
 #[cfg_attr(feature = "validation", derive(Validate))]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateKioskPinDto {
-    #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
-    #[serde(alias = "company_id")]
-    pub company_id: Uuid,
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     #[serde(alias = "employee_id")]
     pub employee_id: Uuid,
@@ -105,9 +99,6 @@ pub struct UpdateKioskPinDto {
 #[serde(rename_all = "camelCase")]
 pub struct PatchKioskPinDto {
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
-    #[serde(skip_serializing_if = "Option::is_none", alias = "company_id")]
-    pub company_id: Option<Uuid>,
-    #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     #[serde(skip_serializing_if = "Option::is_none", alias = "employee_id")]
     pub employee_id: Option<Uuid>,
     #[cfg_attr(feature = "openapi", schema(example = "example"))]
@@ -130,7 +121,7 @@ pub struct PatchKioskPinDto {
 impl PatchKioskPinDto {
     /// Check if any field is set
     pub fn has_changes(&self) -> bool {
-        self.company_id.is_some() || self.employee_id.is_some() || self.badge_code.is_some() || self.pin_hash.is_some() || self.failed_attempts.is_some() || self.locked_until.is_some() || self.last_attempt_at.is_some() || self.expires_at.is_some()
+        self.employee_id.is_some() || self.badge_code.is_some() || self.pin_hash.is_some() || self.failed_attempts.is_some() || self.locked_until.is_some() || self.last_attempt_at.is_some() || self.expires_at.is_some()
     }
 }
 
@@ -148,8 +139,6 @@ impl PatchKioskPinDto {
 pub struct KioskPinResponseDto {
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     pub id: Uuid,
-    #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
-    pub company_id: Uuid,
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     pub employee_id: Uuid,
     #[cfg_attr(feature = "openapi", schema(example = "example"))]
@@ -218,9 +207,9 @@ impl KioskPinListResponseDto {
 #[serde(rename_all = "camelCase")]
 pub struct KioskPinSummaryDto {
     pub id: Uuid,
-    pub company_id: Uuid,
     pub employee_id: Uuid,
     pub badge_code: String,
+    pub pin_hash: String,
     pub created_at: Option<DateTime<Utc>>,
 }
 
@@ -232,7 +221,6 @@ impl From<KioskPin> for KioskPinResponseDto {
     fn from(entity: KioskPin) -> Self {
         Self {
             id: entity.id,
-            company_id: entity.company_id,
             employee_id: entity.employee_id,
             badge_code: entity.badge_code,
             pin_hash: entity.pin_hash,
@@ -250,9 +238,9 @@ impl From<KioskPin> for KioskPinSummaryDto {
         let created_at = backbone_core::PersistentEntity::created_at(&entity);
         Self {
             id: entity.id,
-            company_id: entity.company_id,
             employee_id: entity.employee_id,
             badge_code: entity.badge_code,
+            pin_hash: entity.pin_hash,
             created_at,
         }
     }
@@ -262,7 +250,6 @@ impl From<CreateKioskPinDto> for KioskPin {
     fn from(dto: CreateKioskPinDto) -> Self {
         Self {
             id: Uuid::new_v4(),
-            company_id: dto.company_id,
             employee_id: dto.employee_id,
             badge_code: dto.badge_code,
             pin_hash: dto.pin_hash,
@@ -279,7 +266,6 @@ impl From<&KioskPin> for KioskPinResponseDto {
     fn from(entity: &KioskPin) -> Self {
         Self {
             id: entity.id.clone(),
-            company_id: entity.company_id.clone(),
             employee_id: entity.employee_id.clone(),
             badge_code: entity.badge_code.clone(),
             pin_hash: entity.pin_hash.clone(),
@@ -300,7 +286,6 @@ impl backbone_core::FromCreateDto<CreateKioskPinDto> for KioskPin {
 
 impl backbone_core::ApplyUpdateDto<UpdateKioskPinDto> for KioskPin {
     fn apply_update(mut self, dto: UpdateKioskPinDto) -> backbone_core::ServiceResult<Self> {
-        self.company_id = dto.company_id;
         self.employee_id = dto.employee_id;
         self.badge_code = dto.badge_code;
         self.pin_hash = dto.pin_hash;
@@ -320,4 +305,3 @@ impl backbone_core::ApplyUpdateDto<UpdateKioskPinDto> for KioskPin {
 // Add custom DTOs specific to KioskPin here.
 // This section will be preserved during regeneration.
 // >>> END CUSTOM DTOs
-

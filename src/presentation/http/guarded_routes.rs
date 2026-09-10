@@ -11,9 +11,18 @@
 //!   invariants (EXCLUDE-overlap mapping, immutable clock events, rollup upsert), the Tier B PIN
 //!   policy (argon2id verify, escalating lockout — ADR-0018), and mandatory correction reasons.
 //!
-//! The tenant comes from the [`CompanyContext`] the `company_auth` middleware inserts — never
-//! from the body. The kiosk device authenticates with the company bearer (Tier A) at the host;
-//! the badge+PIN typed at the terminal is the human's Tier B factor handled inside the service.
+//! # How a request is scoped
+//!
+//! Tenancy (ADR-0029): the module is tenant-agnostic — it extracts no tenant identity from
+//! the token and installs no fence. Each write handler extracts [`OrgContext`] (from
+//! `backbone_auth::org`, inserted by the composing service's org auth layer over a signed
+//! Bearer token) so an unauthenticated request is rejected 401 by the extractor, and never
+//! names a tenant itself: the org identity used by the DATABASE is the ambient request scope
+//! the composing service bound (`with_org_request_scope`), which the write service relays
+//! onto its transactions via `backbone_orm::org_scope::bind_org_scope_on`. The host also
+//! owns mounting the auth layer — this router mounts none. The kiosk device authenticates
+//! with a Tier A bearer at the host; the badge+PIN typed at the terminal is the human's
+//! Tier B factor handled inside the service.
 
 use std::str::FromStr;
 use std::sync::Arc;
@@ -25,7 +34,7 @@ use axum::{
     routing::{delete, post},
     Json, Router,
 };
-use backbone_auth::company::CompanyContext;
+use backbone_auth::org::OrgContext;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -139,11 +148,11 @@ struct EmployeeBody {
 
 async fn kiosk_punch(
     State(svc): State<Arc<AttendanceWriteService>>,
-    tenant: CompanyContext,
+    _org: OrgContext,
     Json(b): Json<KioskPunchBody>,
 ) -> axum::response::Response {
     match svc
-        .kiosk_punch(tenant.company_id, &b.badge_code, &b.pin, b.at)
+        .kiosk_punch(&b.badge_code, &b.pin, b.at)
         .await
     {
         Ok(outcome) => punch_response(outcome),
@@ -153,7 +162,7 @@ async fn kiosk_punch(
 
 async fn punch(
     State(svc): State<Arc<AttendanceWriteService>>,
-    tenant: CompanyContext,
+    _org: OrgContext,
     Json(b): Json<PunchBody>,
 ) -> axum::response::Response {
     let direction = match PunchDirection::from_str(&b.direction) {
@@ -169,7 +178,6 @@ async fn punch(
     };
     match svc
         .punch(
-            tenant.company_id,
             b.employee_id,
             direction,
             source,
@@ -185,12 +193,12 @@ async fn punch(
 
 async fn correct_session(
     State(svc): State<Arc<AttendanceWriteService>>,
-    tenant: CompanyContext,
+    _org: OrgContext,
     Path(session_id): Path<Uuid>,
     Json(b): Json<CorrectSessionBody>,
 ) -> axum::response::Response {
     match svc
-        .correct_session(tenant.company_id, session_id, b.check_in, b.check_out, &b.reason)
+        .correct_session(session_id, b.check_in, b.check_out, &b.reason)
         .await
     {
         Ok(outcome) => punch_response(outcome),
@@ -200,11 +208,11 @@ async fn correct_session(
 
 async fn issue_pin(
     State(svc): State<Arc<AttendanceWriteService>>,
-    tenant: CompanyContext,
+    _org: OrgContext,
     Json(b): Json<IssuePinBody>,
 ) -> axum::response::Response {
     match svc
-        .issue_pin(tenant.company_id, b.employee_id, &b.badge_code, &b.pin, b.expires_at)
+        .issue_pin(b.employee_id, &b.badge_code, &b.pin, b.expires_at)
         .await
     {
         Ok(id) => (StatusCode::CREATED, Json(IdResponse { id })).into_response(),
@@ -214,10 +222,10 @@ async fn issue_pin(
 
 async fn rotate_pin(
     State(svc): State<Arc<AttendanceWriteService>>,
-    tenant: CompanyContext,
+    _org: OrgContext,
     Json(b): Json<EmployeePinBody>,
 ) -> axum::response::Response {
-    match svc.rotate_pin(tenant.company_id, b.employee_id, &b.pin).await {
+    match svc.rotate_pin(b.employee_id, &b.pin).await {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => err_response(e),
     }
@@ -225,10 +233,10 @@ async fn rotate_pin(
 
 async fn unlock_pin(
     State(svc): State<Arc<AttendanceWriteService>>,
-    tenant: CompanyContext,
+    _org: OrgContext,
     Json(b): Json<EmployeeBody>,
 ) -> axum::response::Response {
-    match svc.unlock_pin(tenant.company_id, b.employee_id).await {
+    match svc.unlock_pin(b.employee_id).await {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => err_response(e),
     }
@@ -236,10 +244,10 @@ async fn unlock_pin(
 
 async fn revoke_pin(
     State(svc): State<Arc<AttendanceWriteService>>,
-    tenant: CompanyContext,
+    _org: OrgContext,
     Path(employee_id): Path<Uuid>,
 ) -> axum::response::Response {
-    match svc.revoke_pin(tenant.company_id, employee_id).await {
+    match svc.revoke_pin(employee_id).await {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => err_response(e),
     }
@@ -248,7 +256,7 @@ async fn revoke_pin(
 // ── composition ────────────────────────────────────────────────────────────────
 
 /// Build the guarded attendance router: validated writes + safe reads, NO generic CRUD mutation
-/// and NO kiosk_pin reads. Mount under the host's authenticated (company_auth) tree.
+/// and NO kiosk_pin reads. Mount under the host's authenticated (org auth) tree.
 pub fn create_guarded_attendance_routes(m: &AttendanceModule) -> Router {
     let writes = Router::new()
         .route("/attendance/kiosk/punch", post(kiosk_punch))

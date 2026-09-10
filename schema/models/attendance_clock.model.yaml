@@ -9,6 +9,8 @@
 # =============================================================================
 
 models:
+  # Tenancy: none, by design (ADR-0029). Tenant-agnostic and reusable; a composing
+  # service's tenancy decorator owns org scoping for this table.
   - name: AttendanceClock
     collection: attendance_clocks
     description: "Raw punch events (in/out) — immutable-append, linked to a session."
@@ -18,11 +20,6 @@ models:
         type: uuid
         attributes: ["@id", "@default(uuid)"]
         description: "Unique record id"
-
-      company_id:
-        type: uuid
-        attributes: ["@required", "@exclude_from_foreign_key_check"]
-        description: "Org owner # logical FK organization.Company.id"
 
       session_id:
         type: uuid

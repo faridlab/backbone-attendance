@@ -33,9 +33,6 @@ use crate::domain::entity::AuditMetadata;
 #[serde(rename_all = "camelCase")]
 pub struct CreateAttendanceDto {
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
-    #[serde(alias = "company_id")]
-    pub company_id: Uuid,
-    #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     #[serde(alias = "employee_id")]
     pub employee_id: Uuid,
     #[cfg_attr(feature = "openapi", schema(example = "2024-01-01"))]
@@ -65,9 +62,6 @@ pub struct CreateAttendanceDto {
 #[cfg_attr(feature = "validation", derive(Validate))]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateAttendanceDto {
-    #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
-    #[serde(alias = "company_id")]
-    pub company_id: Uuid,
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     #[serde(alias = "employee_id")]
     pub employee_id: Uuid,
@@ -99,9 +93,6 @@ pub struct UpdateAttendanceDto {
 #[serde(rename_all = "camelCase")]
 pub struct PatchAttendanceDto {
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
-    #[serde(skip_serializing_if = "Option::is_none", alias = "company_id")]
-    pub company_id: Option<Uuid>,
-    #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     #[serde(skip_serializing_if = "Option::is_none", alias = "employee_id")]
     pub employee_id: Option<Uuid>,
     #[cfg_attr(feature = "openapi", schema(example = "2024-01-01"))]
@@ -122,7 +113,7 @@ pub struct PatchAttendanceDto {
 impl PatchAttendanceDto {
     /// Check if any field is set
     pub fn has_changes(&self) -> bool {
-        self.company_id.is_some() || self.employee_id.is_some() || self.date.is_some() || self.schedule.is_some() || self.clockin.is_some() || self.clockout.is_some() || self.time_debt.is_some() || self.timeoff.is_some()
+        self.employee_id.is_some() || self.date.is_some() || self.schedule.is_some() || self.clockin.is_some() || self.clockout.is_some() || self.time_debt.is_some() || self.timeoff.is_some()
     }
 }
 
@@ -140,8 +131,6 @@ impl PatchAttendanceDto {
 pub struct AttendanceResponseDto {
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     pub id: Uuid,
-    #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
-    pub company_id: Uuid,
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     pub employee_id: Uuid,
     #[cfg_attr(feature = "openapi", schema(example = "2024-01-01"))]
@@ -208,9 +197,9 @@ impl AttendanceListResponseDto {
 #[serde(rename_all = "camelCase")]
 pub struct AttendanceSummaryDto {
     pub id: Uuid,
-    pub company_id: Uuid,
     pub employee_id: Uuid,
     pub date: NaiveDate,
+    pub schedule: Option<serde_json::Value>,
     pub created_at: Option<DateTime<Utc>>,
 }
 
@@ -222,7 +211,6 @@ impl From<Attendance> for AttendanceResponseDto {
     fn from(entity: Attendance) -> Self {
         Self {
             id: entity.id,
-            company_id: entity.company_id,
             employee_id: entity.employee_id,
             date: entity.date,
             schedule: entity.schedule,
@@ -240,9 +228,9 @@ impl From<Attendance> for AttendanceSummaryDto {
         let created_at = backbone_core::PersistentEntity::created_at(&entity);
         Self {
             id: entity.id,
-            company_id: entity.company_id,
             employee_id: entity.employee_id,
             date: entity.date,
+            schedule: entity.schedule,
             created_at,
         }
     }
@@ -252,7 +240,6 @@ impl From<CreateAttendanceDto> for Attendance {
     fn from(dto: CreateAttendanceDto) -> Self {
         Self {
             id: Uuid::new_v4(),
-            company_id: dto.company_id,
             employee_id: dto.employee_id,
             date: dto.date,
             schedule: dto.schedule,
@@ -269,7 +256,6 @@ impl From<&Attendance> for AttendanceResponseDto {
     fn from(entity: &Attendance) -> Self {
         Self {
             id: entity.id.clone(),
-            company_id: entity.company_id.clone(),
             employee_id: entity.employee_id.clone(),
             date: entity.date.clone(),
             schedule: entity.schedule.clone(),
@@ -290,7 +276,6 @@ impl backbone_core::FromCreateDto<CreateAttendanceDto> for Attendance {
 
 impl backbone_core::ApplyUpdateDto<UpdateAttendanceDto> for Attendance {
     fn apply_update(mut self, dto: UpdateAttendanceDto) -> backbone_core::ServiceResult<Self> {
-        self.company_id = dto.company_id;
         self.employee_id = dto.employee_id;
         self.date = dto.date;
         self.schedule = dto.schedule;
@@ -310,4 +295,3 @@ impl backbone_core::ApplyUpdateDto<UpdateAttendanceDto> for Attendance {
 // Add custom DTOs specific to Attendance here.
 // This section will be preserved during regeneration.
 // >>> END CUSTOM DTOs
-

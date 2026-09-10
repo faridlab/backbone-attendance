@@ -48,7 +48,6 @@ impl From<AttendanceId> for Uuid {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AttendanceDto {
     pub id: AttendanceId,
-    pub company_id: Uuid,
     pub employee_id: Uuid,
     pub date: NaiveDate,
     pub schedule: Option<serde_json::Value>,
@@ -109,7 +108,6 @@ impl From<AttendanceClockId> for Uuid {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AttendanceClockDto {
     pub id: AttendanceClockId,
-    pub company_id: Uuid,
     pub session_id: Uuid,
     pub employee_id: Uuid,
     pub date: NaiveDate,
@@ -168,7 +166,6 @@ impl From<AttendanceSessionId> for Uuid {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AttendanceSessionDto {
     pub id: AttendanceSessionId,
-    pub company_id: Uuid,
     pub employee_id: Uuid,
     pub date: NaiveDate,
     pub check_in: DateTime<Utc>,
@@ -228,7 +225,6 @@ impl From<KioskPinId> for Uuid {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KioskPinDto {
     pub id: KioskPinId,
-    pub company_id: Uuid,
     pub employee_id: Uuid,
     pub badge_code: String,
     pub pin_hash: String,

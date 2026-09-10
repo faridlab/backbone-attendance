@@ -39,10 +39,16 @@ user_owned:
   # Behavior tests (the golden cases / oracle) + BDD features.
   - "tests/features/**"
   # - "tests/*_golden_cases.rs"
-  # Route-level integrity probes (W1 P2): real company_auth + HS256 token, oneshot router,
-  # RLS-fenced assertion reads via with_company_scope. Covers kiosk PIN policy end-to-end,
-  # EXCLUDE overlap → 409, rollup/clock-event writes, cross-company fence, unauthenticated 401.
+  # Route-level integrity probes (W1 P2): oneshot router with the caller identity inserted as a
+  # request extension (the module mounts no auth middleware; the OrgContext extractor supplies
+  # the 401), plain assertion reads against the undecorated database. Covers kiosk PIN policy
+  # end-to-end, EXCLUDE overlap → 409, rollup/clock-event writes, unauthenticated 401.
   - "tests/integrity_probes.rs"
+
+  # Hand-authored migrations (the composition-artifact strip — the strip's ordering guard
+  # is hand-authored logic, not schema-derived emission).
+  - "migrations/20260911062000_strip_tenancy.up.sql"
+  - "migrations/20260911062000_strip_tenancy.down.sql"
 
   # Hand-authored module documentation.
   - "docs/**"

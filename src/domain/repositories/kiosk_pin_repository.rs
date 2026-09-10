@@ -44,7 +44,6 @@ pub struct KioskPinPaginatedResult {
 /// Filter parameters for list queries
 #[derive(Debug, Clone, Default)]
 pub struct KioskPinFilter {
-    pub company_id: Option<Uuid>,
     pub employee_id: Option<Uuid>,
     pub badge_code: Option<String>,
     pub pin_hash: Option<String>,
@@ -53,7 +52,7 @@ pub struct KioskPinFilter {
 impl KioskPinFilter {
     /// Check if any filter is set
     pub fn has_filters(&self) -> bool {
-        self.company_id.is_some() || self.employee_id.is_some() || self.badge_code.is_some() || self.pin_hash.is_some()
+        self.employee_id.is_some() || self.badge_code.is_some() || self.pin_hash.is_some()
     }
 }
 

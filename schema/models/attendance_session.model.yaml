@@ -12,6 +12,8 @@
 # =============================================================================
 
 models:
+  # Tenancy: none, by design (ADR-0029). Tenant-agnostic and reusable; a composing
+  # service's tenancy decorator owns org scoping for this table.
   - name: AttendanceSession
     collection: attendance_sessions
     description: "One contiguous worked interval (check_in → check_out); DB-level overlap-excluded per employee."
@@ -21,11 +23,6 @@ models:
         type: uuid
         attributes: ["@id", "@default(uuid)"]
         description: "Unique record id"
-
-      company_id:
-        type: uuid
-        attributes: ["@required", "@exclude_from_foreign_key_check"]
-        description: "Org owner # logical FK organization.Company.id"
 
       employee_id:
         type: uuid
@@ -62,15 +59,11 @@ models:
         description: "Audit metadata"
 
     indexes:
-      - type: index
-        fields: [company_id, employee_id]
-      - type: index
-        fields: [company_id, date]
-      # Open sessions per employee — the punch-out lookup.
-      - type: index
-        fields: [company_id, employee_id]
-        where: "check_out IS NULL AND deleted_at IS NULL"
-        description: "Find the open session for an employee"
+      # Tenancy (ADR-0029): no tenant-leading indexes remain. The former
+      # (company_id, employee_id) / (company_id, date) lookups were per-unit posture;
+      # a composing service's decorator owns their org-scoped re-declarations.
+      # The employee-overlap invariant lives in the sessions EXCLUDE constraint
+      # (hand-written migration, tenant-free), not in a schema-declared index.
 
 enums:
   - name: PunchSource

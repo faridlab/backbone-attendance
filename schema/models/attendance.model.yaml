@@ -8,6 +8,9 @@
 # =============================================================================
 
 models:
+  # Tenancy: none, by design (ADR-0029). Tenant-agnostic and reusable; a composing
+  # service's tenancy decorator owns org scoping for this table, including the
+  # per-unit presence unique that keeps one rollup row per employee per day.
   - name: Attendance
     collection: attendances
     description: "An employee's presence on a date (one per employee per day). Carries schedule/timeoff snapshots, not a status enum."
@@ -17,11 +20,6 @@ models:
         type: uuid
         attributes: ["@id", "@default(uuid)"]
         description: "Unique record id"
-
-      company_id:
-        type: uuid
-        attributes: ["@required", "@exclude_from_foreign_key_check"]
-        description: "Org owner # logical FK organization.Company.id"
 
       employee_id:
         type: uuid
@@ -59,10 +57,12 @@ models:
         description: "Audit metadata"
 
     indexes:
-      # One presence per employee per day (partial — only among live rows).
+      # Tenancy (ADR-0029): the module is tenant-agnostic — no tenant key, no per-unit unique.
+      # The one-presence-per-employee-per-day rule below is DOMAIN, not posture: an employee is
+      # one person living in exactly one unit under any deployment, so the per-employee unique
+      # needs no tenant column. Per-unit presence uniqueness is posture — that stays with the
+      # composing service's tenancy decorator. (Partial — only among live rows.)
       - type: unique
-        fields: [company_id, employee_id, date]
+        fields: [employee_id, date]
         where: "deleted_at IS NULL"
         description: "One presence per employee per day"
-      - type: index
-        fields: [company_id, date]

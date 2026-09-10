@@ -7,12 +7,18 @@
 #              (never plain == like Odoo's attendance_kiosk_mode), every
 #              verification is throttled and attempt-counted with escalating
 #              lockout, and the code lives ONLY where a human types it — the
-#              kiosk device itself authenticates with a Tier A company bearer.
-#              Expiry is expressed as an optional expires_at (rotation policy);
-#              standing credentials rotate on admin action, not auto-expiry.
+#              kiosk device itself authenticates with a Tier A bearer at the
+#              host. Expiry is expressed as an optional expires_at (rotation
+#              policy); standing credentials rotate on admin action, not
+#              auto-expiry.
 # =============================================================================
 
 models:
+  # Tenancy: none, by design (ADR-0029). Tenant-agnostic and reusable; a composing
+  # service's tenancy decorator owns org scoping for this table, including the
+  # per-unit credential uniques (one live badge code per unit, one live credential
+  # per employee per unit) — badge codes are unit-local labels, so their
+  # uniqueness is posture, not domain.
   - name: KioskPin
     collection: kiosk_pins
     description: "Kiosk clock credential (badge code + argon2 PIN, throttled + attempt-counted)."
@@ -22,11 +28,6 @@ models:
         type: uuid
         attributes: ["@id", "@default(uuid)"]
         description: "Unique record id"
-
-      company_id:
-        type: uuid
-        attributes: ["@required", "@exclude_from_foreign_key_check"]
-        description: "Org owner # logical FK organization.Company.id"
 
       employee_id:
         type: uuid
@@ -66,13 +67,8 @@ models:
         description: "Audit metadata"
 
     indexes:
-      # Kiosk lookup: badge identifies, within one company, among live rows.
-      - type: unique
-        fields: [company_id, badge_code]
-        where: "deleted_at IS NULL"
-        description: "One live credential per badge code per company"
-      # One live credential per employee.
-      - type: unique
-        fields: [company_id, employee_id]
-        where: "deleted_at IS NULL"
-        description: "One live kiosk credential per employee per company"
+      # Tenancy (ADR-0029): no tenant-leading uniques remain. The former
+      # (company_id, badge_code) / (company_id, employee_id) rules were per-unit
+      # posture; a composing service's decorator owns their org-scoped
+      # re-declarations. The write path pre-revokes before re-issue, so the
+      # one-live-credential rule holds by construction even unfenced.

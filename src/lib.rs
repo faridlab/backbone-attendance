@@ -41,17 +41,13 @@ pub use application::service::KioskPinService;
 pub use application::workflows::*;
 
 // <<< CUSTOM
-// The validated write path (punch/session/kiosk-PIN — H-3) and its guarded HTTP composition,
-// plus `company_scope` re-exported for the RLS probe suite (tests/ can only see the public
-// surface, mirroring backbone-party's convention).
+// The validated write path (punch/session/kiosk-PIN — H-3) and its guarded HTTP composition.
 pub use application::service::{
     validate_punch_time,
     lockout_until, pin_is_wellformed, AttendanceWriteError, AttendanceWriteService, PunchOutcome,
 };
 pub use presentation::http::create_guarded_attendance_routes;
-pub use backbone_orm::company_scope;
 // END CUSTOM
-
 use std::sync::Arc;
 use axum::Router;
 use sqlx::PgPool;
@@ -71,16 +67,16 @@ use sqlx::PgPool;
 pub struct AttendanceModule {
     pub(crate) attendance_service: Arc<AttendanceService>,
     pub(crate) attendance_clock_service: Arc<AttendanceClockService>,
+    pub(crate) attendance_session_service: Arc<AttendanceSessionService>,
+    pub(crate) kiosk_pin_service: Arc<KioskPinService>,
     // <<< CUSTOM FIELDS
     // Held so the `AttendanceQueryService` impl can delegate `present_days` to the repo's
     // hand-written SQL, and standard lookups to the CRUD services above. `db_pool` is the same pool
-    // the repo was constructed with (the repo's `present_days` takes it per the backbone-hr read-port
-    // convention — RLS scoping is applied inside via `company_scope::fetch_all_scoped`).
+    // the repo was constructed with (the repo's present-days reads ride the ambient request
+    // scope the composing service binds, per the backbone-hr read-port convention).
     pub(crate) attendance_repository: Arc<AttendanceRepository>,
     pub(crate) db_pool: sqlx::PgPool,
     // END CUSTOM
-    pub(crate) attendance_session_service: Arc<AttendanceSessionService>,
-    pub(crate) kiosk_pin_service: Arc<KioskPinService>,
     // <<< CUSTOM FIELDS
     /// Validated punch/session/kiosk-PIN writes (EXCLUDE-overlap mapping, Tier B PIN policy,
     /// immutable clock events, daily rollup upsert). The guarded routes compose off this.
@@ -198,12 +194,12 @@ impl AttendanceModuleBuilder {
         Ok(AttendanceModule {
             attendance_service,
             attendance_clock_service,
+            attendance_session_service,
+            kiosk_pin_service,
             // <<< CUSTOM
             attendance_repository: attendance_repository.clone(),
             db_pool,
             // END CUSTOM
-            attendance_session_service,
-            kiosk_pin_service,
             // <<< CUSTOM
             attendance_write_service,
             // END CUSTOM

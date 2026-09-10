@@ -34,9 +34,6 @@ use crate::domain::entity::PunchDirection;
 #[serde(rename_all = "camelCase")]
 pub struct CreateAttendanceClockDto {
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
-    #[serde(alias = "company_id")]
-    pub company_id: Uuid,
-    #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     #[serde(alias = "session_id")]
     pub session_id: Uuid,
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
@@ -63,9 +60,6 @@ pub struct CreateAttendanceClockDto {
 #[cfg_attr(feature = "validation", derive(Validate))]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateAttendanceClockDto {
-    #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
-    #[serde(alias = "company_id")]
-    pub company_id: Uuid,
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     #[serde(alias = "session_id")]
     pub session_id: Uuid,
@@ -94,9 +88,6 @@ pub struct UpdateAttendanceClockDto {
 #[serde(rename_all = "camelCase")]
 pub struct PatchAttendanceClockDto {
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
-    #[serde(skip_serializing_if = "Option::is_none", alias = "company_id")]
-    pub company_id: Option<Uuid>,
-    #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     #[serde(skip_serializing_if = "Option::is_none", alias = "session_id")]
     pub session_id: Option<Uuid>,
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
@@ -115,7 +106,7 @@ pub struct PatchAttendanceClockDto {
 impl PatchAttendanceClockDto {
     /// Check if any field is set
     pub fn has_changes(&self) -> bool {
-        self.company_id.is_some() || self.session_id.is_some() || self.employee_id.is_some() || self.date.is_some() || self.punched_at.is_some() || self.direction.is_some()
+        self.session_id.is_some() || self.employee_id.is_some() || self.date.is_some() || self.punched_at.is_some() || self.direction.is_some()
     }
 }
 
@@ -133,8 +124,6 @@ impl PatchAttendanceClockDto {
 pub struct AttendanceClockResponseDto {
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     pub id: Uuid,
-    #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
-    pub company_id: Uuid,
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     pub session_id: Uuid,
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
@@ -201,9 +190,9 @@ impl AttendanceClockListResponseDto {
 #[serde(rename_all = "camelCase")]
 pub struct AttendanceClockSummaryDto {
     pub id: Uuid,
-    pub company_id: Uuid,
     pub session_id: Uuid,
     pub employee_id: Uuid,
+    pub date: NaiveDate,
     pub created_at: Option<DateTime<Utc>>,
 }
 
@@ -215,7 +204,6 @@ impl From<AttendanceClock> for AttendanceClockResponseDto {
     fn from(entity: AttendanceClock) -> Self {
         Self {
             id: entity.id,
-            company_id: entity.company_id,
             session_id: entity.session_id,
             employee_id: entity.employee_id,
             date: entity.date,
@@ -231,9 +219,9 @@ impl From<AttendanceClock> for AttendanceClockSummaryDto {
         let created_at = backbone_core::PersistentEntity::created_at(&entity);
         Self {
             id: entity.id,
-            company_id: entity.company_id,
             session_id: entity.session_id,
             employee_id: entity.employee_id,
+            date: entity.date,
             created_at,
         }
     }
@@ -243,7 +231,6 @@ impl From<CreateAttendanceClockDto> for AttendanceClock {
     fn from(dto: CreateAttendanceClockDto) -> Self {
         Self {
             id: Uuid::new_v4(),
-            company_id: dto.company_id,
             session_id: dto.session_id,
             employee_id: dto.employee_id,
             date: dto.date,
@@ -258,7 +245,6 @@ impl From<&AttendanceClock> for AttendanceClockResponseDto {
     fn from(entity: &AttendanceClock) -> Self {
         Self {
             id: entity.id.clone(),
-            company_id: entity.company_id.clone(),
             session_id: entity.session_id.clone(),
             employee_id: entity.employee_id.clone(),
             date: entity.date.clone(),
@@ -277,7 +263,6 @@ impl backbone_core::FromCreateDto<CreateAttendanceClockDto> for AttendanceClock 
 
 impl backbone_core::ApplyUpdateDto<UpdateAttendanceClockDto> for AttendanceClock {
     fn apply_update(mut self, dto: UpdateAttendanceClockDto) -> backbone_core::ServiceResult<Self> {
-        self.company_id = dto.company_id;
         self.session_id = dto.session_id;
         self.employee_id = dto.employee_id;
         self.date = dto.date;
@@ -295,4 +280,3 @@ impl backbone_core::ApplyUpdateDto<UpdateAttendanceClockDto> for AttendanceClock
 // Add custom DTOs specific to AttendanceClock here.
 // This section will be preserved during regeneration.
 // >>> END CUSTOM DTOs
-

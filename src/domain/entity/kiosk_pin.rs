@@ -48,7 +48,6 @@ impl std::ops::Deref for KioskPinId {
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct KioskPin {
     pub id: Uuid,
-    pub company_id: Uuid,
     pub employee_id: Uuid,
     pub badge_code: String,
     pub pin_hash: String,
@@ -68,10 +67,9 @@ impl KioskPin {
     }
 
     /// Create a new KioskPin with required fields
-    pub fn new(company_id: Uuid, employee_id: Uuid, badge_code: String, pin_hash: String, failed_attempts: i32) -> Self {
+    pub fn new(employee_id: Uuid, badge_code: String, pin_hash: String, failed_attempts: i32) -> Self {
         Self {
             id: Uuid::new_v4(),
-            company_id,
             employee_id,
             badge_code,
             pin_hash,
@@ -164,9 +162,6 @@ impl KioskPin {
     pub fn apply_patch(&mut self, fields: std::collections::HashMap<String, serde_json::Value>) {
         for (key, value) in fields {
             match key.as_str() {
-                "company_id" => {
-                    if let Ok(v) = serde_json::from_value(value) { self.company_id = v; }
-                }
                 "employee_id" => {
                     if let Ok(v) = serde_json::from_value(value) { self.employee_id = v; }
                 }
@@ -242,15 +237,11 @@ impl backbone_orm::EntityRepoMeta for KioskPin {
     fn column_types() -> std::collections::HashMap<String, String> {
         let mut m = std::collections::HashMap::new();
         m.insert("id".to_string(), "uuid".to_string());
-        m.insert("company_id".to_string(), "uuid".to_string());
         m.insert("employee_id".to_string(), "uuid".to_string());
         m
     }
     fn search_fields() -> &'static [&'static str] {
         &["badge_code", "pin_hash"]
-    }
-    fn company_field() -> Option<&'static str> {
-        Some("company_id")
     }
 }
 
@@ -260,7 +251,6 @@ impl backbone_orm::EntityRepoMeta for KioskPin {
 /// System fields (id, metadata, timestamps) are auto-initialized.
 #[derive(Debug, Clone, Default)]
 pub struct KioskPinBuilder {
-    company_id: Option<Uuid>,
     employee_id: Option<Uuid>,
     badge_code: Option<String>,
     pin_hash: Option<String>,
@@ -271,12 +261,6 @@ pub struct KioskPinBuilder {
 }
 
 impl KioskPinBuilder {
-    /// Set the company_id field (required)
-    pub fn company_id(mut self, value: Uuid) -> Self {
-        self.company_id = Some(value);
-        self
-    }
-
     /// Set the employee_id field (required)
     pub fn employee_id(mut self, value: Uuid) -> Self {
         self.employee_id = Some(value);
@@ -323,14 +307,12 @@ impl KioskPinBuilder {
     ///
     /// Returns Err if any required field without a default is missing.
     pub fn build(self) -> Result<KioskPin, String> {
-        let company_id = self.company_id.ok_or_else(|| "company_id is required".to_string())?;
         let employee_id = self.employee_id.ok_or_else(|| "employee_id is required".to_string())?;
         let badge_code = self.badge_code.ok_or_else(|| "badge_code is required".to_string())?;
         let pin_hash = self.pin_hash.ok_or_else(|| "pin_hash is required".to_string())?;
 
         Ok(KioskPin {
             id: Uuid::new_v4(),
-            company_id,
             employee_id,
             badge_code,
             pin_hash,

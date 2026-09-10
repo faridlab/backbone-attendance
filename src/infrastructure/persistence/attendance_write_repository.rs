@@ -7,9 +7,10 @@
 //!
 //! Every method takes a `&mut PgConnection` (a transaction begun by the write service) rather
 //! than the pool: a punch is all-or-nothing — session row + immutable clock event + daily rollup
-//! (+ PIN counter updates) commit together or not at all. The caller MUST have bound the company
-//! onto the connection (`company_scope::bind_company_on`) right after `begin()`; under RLS an
-//! unbound connection sees nothing (fail-closed, ADR-0008).
+//! (+ PIN counter updates) commit together or not at all. Tenancy: none, by design (ADR-0029) —
+//! the caller MUST have relayed the ambient org scope onto the connection
+//! (`org_scope::bind_org_scope_on`) right after `begin()`; under the composing service's RLS
+//! fence a connection with no scope sees nothing (fail-closed).
 //!
 //! Soft-delete lives in `metadata` JSONB (`deleted_at` key), so every "live row" predicate is
 //! `(metadata->>'deleted_at') IS NULL`, mirroring the module's partial indexes and the P0 fence.
@@ -47,21 +48,20 @@ pub struct AttendanceWriteRepository;
 impl AttendanceWriteRepository {
     // ─── kiosk PIN (Tier B credential, ADR-0018) ──────────────────────────────
 
-    /// The employee's live PIN row (one per employee AND one per badge — partial unique indexes).
+    /// The employee's live PIN row (one per employee — the composing service's tenancy
+    /// decorator owns the per-unit credential uniques).
     pub async fn find_live_pin(
         &self,
         conn: &mut PgConnection,
-        company_id: Uuid,
         employee_id: Uuid,
     ) -> Result<Option<PinRow>, sqlx::Error> {
         sqlx::query_as::<_, PinRow>(
             r#"SELECT id, employee_id, pin_hash, failed_attempts, locked_until, last_attempt_at, expires_at
                  FROM attendance.kiosk_pins
-                WHERE company_id = $1 AND employee_id = $2
+                WHERE employee_id = $1
                   AND (metadata->>'deleted_at') IS NULL
                 LIMIT 1"#,
         )
-        .bind(company_id)
         .bind(employee_id)
         .fetch_optional(conn)
         .await
@@ -71,17 +71,15 @@ impl AttendanceWriteRepository {
     pub async fn find_live_pin_by_badge(
         &self,
         conn: &mut PgConnection,
-        company_id: Uuid,
         badge_code: &str,
     ) -> Result<Option<PinRow>, sqlx::Error> {
         sqlx::query_as::<_, PinRow>(
             r#"SELECT id, employee_id, pin_hash, failed_attempts, locked_until, last_attempt_at, expires_at
                  FROM attendance.kiosk_pins
-                WHERE company_id = $1 AND badge_code = $2
+                WHERE badge_code = $1
                   AND (metadata->>'deleted_at') IS NULL
                 LIMIT 1"#,
         )
-        .bind(company_id)
         .bind(badge_code)
         .fetch_optional(conn)
         .await
@@ -143,7 +141,6 @@ impl AttendanceWriteRepository {
     pub async fn issue_pin(
         &self,
         conn: &mut PgConnection,
-        company_id: Uuid,
         employee_id: Uuid,
         badge_code: &str,
         pin_hash: &str,
@@ -152,11 +149,10 @@ impl AttendanceWriteRepository {
     ) -> Result<Uuid, sqlx::Error> {
         sqlx::query(
             r#"UPDATE attendance.kiosk_pins
-                  SET metadata = metadata || jsonb_build_object('deleted_at', to_jsonb($3::timestamptz))
-                WHERE company_id = $1 AND employee_id = $2
+                  SET metadata = metadata || jsonb_build_object('deleted_at', to_jsonb($2::timestamptz))
+                WHERE employee_id = $1
                   AND (metadata->>'deleted_at') IS NULL"#,
         )
-        .bind(company_id)
         .bind(employee_id)
         .bind(now)
         .execute(&mut *conn)
@@ -164,14 +160,13 @@ impl AttendanceWriteRepository {
 
         sqlx::query_scalar::<_, Uuid>(
             r#"INSERT INTO attendance.kiosk_pins
-                   (id, company_id, employee_id, badge_code, pin_hash, failed_attempts, locked_until,
+                   (id, employee_id, badge_code, pin_hash, failed_attempts, locked_until,
                     expires_at, metadata)
-               VALUES (gen_random_uuid(), $1, $2, $3, $4, 0, NULL, $5,
-                       jsonb_build_object('created_at', to_jsonb($6::timestamptz),
-                                          'updated_at', to_jsonb($6::timestamptz)))
+               VALUES (gen_random_uuid(), $1, $2, $3, 0, NULL, $4,
+                       jsonb_build_object('created_at', to_jsonb($5::timestamptz),
+                                          'updated_at', to_jsonb($5::timestamptz)))
                RETURNING id"#,
         )
-        .bind(company_id)
         .bind(employee_id)
         .bind(badge_code)
         .bind(pin_hash)
@@ -185,21 +180,19 @@ impl AttendanceWriteRepository {
     pub async fn replace_pin_hash(
         &self,
         conn: &mut PgConnection,
-        company_id: Uuid,
         employee_id: Uuid,
         pin_hash: &str,
         now: DateTime<Utc>,
     ) -> Result<bool, sqlx::Error> {
         let res = sqlx::query(
             r#"UPDATE attendance.kiosk_pins
-                  SET pin_hash = $3,
+                  SET pin_hash = $2,
                       failed_attempts = 0,
                       locked_until = NULL,
-                      metadata = metadata || jsonb_build_object('updated_at', to_jsonb($4::timestamptz))
-                WHERE company_id = $1 AND employee_id = $2
+                      metadata = metadata || jsonb_build_object('updated_at', to_jsonb($3::timestamptz))
+                WHERE employee_id = $1
                   AND (metadata->>'deleted_at') IS NULL"#,
         )
-        .bind(company_id)
         .bind(employee_id)
         .bind(pin_hash)
         .bind(now)
@@ -212,7 +205,6 @@ impl AttendanceWriteRepository {
     pub async fn unlock_pin(
         &self,
         conn: &mut PgConnection,
-        company_id: Uuid,
         employee_id: Uuid,
         now: DateTime<Utc>,
     ) -> Result<bool, sqlx::Error> {
@@ -220,11 +212,10 @@ impl AttendanceWriteRepository {
             r#"UPDATE attendance.kiosk_pins
                   SET failed_attempts = 0,
                       locked_until = NULL,
-                      metadata = metadata || jsonb_build_object('updated_at', to_jsonb($3::timestamptz))
-                WHERE company_id = $1 AND employee_id = $2
+                      metadata = metadata || jsonb_build_object('updated_at', to_jsonb($2::timestamptz))
+                WHERE employee_id = $1
                   AND (metadata->>'deleted_at') IS NULL"#,
         )
-        .bind(company_id)
         .bind(employee_id)
         .bind(now)
         .execute(conn)
@@ -236,17 +227,15 @@ impl AttendanceWriteRepository {
     pub async fn revoke_pin(
         &self,
         conn: &mut PgConnection,
-        company_id: Uuid,
         employee_id: Uuid,
         now: DateTime<Utc>,
     ) -> Result<bool, sqlx::Error> {
         let res = sqlx::query(
             r#"UPDATE attendance.kiosk_pins
-                  SET metadata = metadata || jsonb_build_object('deleted_at', to_jsonb($3::timestamptz))
-                WHERE company_id = $1 AND employee_id = $2
+                  SET metadata = metadata || jsonb_build_object('deleted_at', to_jsonb($2::timestamptz))
+                WHERE employee_id = $1
                   AND (metadata->>'deleted_at') IS NULL"#,
         )
-        .bind(company_id)
         .bind(employee_id)
         .bind(now)
         .execute(conn)
@@ -261,16 +250,14 @@ impl AttendanceWriteRepository {
     pub async fn get_session(
         &self,
         conn: &mut PgConnection,
-        company_id: Uuid,
         session_id: Uuid,
     ) -> Result<Option<SessionRow>, sqlx::Error> {
         sqlx::query_as::<_, SessionRow>(
             r#"SELECT id, employee_id, date, check_in, check_out
                  FROM attendance.attendance_sessions
-                WHERE company_id = $1 AND id = $2
+                WHERE id = $1
                   AND (metadata->>'deleted_at') IS NULL"#,
         )
-        .bind(company_id)
         .bind(session_id)
         .fetch_optional(conn)
         .await
@@ -282,19 +269,17 @@ impl AttendanceWriteRepository {
     pub async fn find_open_session(
         &self,
         conn: &mut PgConnection,
-        company_id: Uuid,
         employee_id: Uuid,
     ) -> Result<Option<SessionRow>, sqlx::Error> {
         sqlx::query_as::<_, SessionRow>(
             r#"SELECT id, employee_id, date, check_in, check_out
                  FROM attendance.attendance_sessions
-                WHERE company_id = $1 AND employee_id = $2
+                WHERE employee_id = $1
                   AND check_out IS NULL
                   AND (metadata->>'deleted_at') IS NULL
                 ORDER BY check_in DESC
                 LIMIT 1"#,
         )
-        .bind(company_id)
         .bind(employee_id)
         .fetch_optional(conn)
         .await
@@ -308,7 +293,6 @@ impl AttendanceWriteRepository {
     pub async fn insert_session(
         &self,
         conn: &mut PgConnection,
-        company_id: Uuid,
         employee_id: Uuid,
         date: NaiveDate,
         check_in: DateTime<Utc>,
@@ -318,13 +302,12 @@ impl AttendanceWriteRepository {
     ) -> Result<SessionRow, sqlx::Error> {
         sqlx::query_as::<_, SessionRow>(
             r#"INSERT INTO attendance.attendance_sessions
-                   (id, company_id, employee_id, date, check_in, check_out, source, correction_reason, metadata)
-               VALUES (gen_random_uuid(), $1, $2, $3, $4, NULL, $5::punch_source, $6,
-                       jsonb_build_object('created_at', to_jsonb($7::timestamptz),
-                                          'updated_at', to_jsonb($7::timestamptz)))
+                   (id, employee_id, date, check_in, check_out, source, correction_reason, metadata)
+               VALUES (gen_random_uuid(), $1, $2, $3, NULL, $4::punch_source, $5,
+                       jsonb_build_object('created_at', to_jsonb($6::timestamptz),
+                                          'updated_at', to_jsonb($6::timestamptz)))
                RETURNING id, employee_id, date, check_in, check_out"#,
         )
-        .bind(company_id)
         .bind(employee_id)
         .bind(date)
         .bind(check_in)
@@ -340,7 +323,6 @@ impl AttendanceWriteRepository {
     pub async fn close_session(
         &self,
         conn: &mut PgConnection,
-        company_id: Uuid,
         session_id: Uuid,
         check_out: DateTime<Utc>,
         correction_reason: Option<&str>,
@@ -348,15 +330,14 @@ impl AttendanceWriteRepository {
     ) -> Result<Option<SessionRow>, sqlx::Error> {
         sqlx::query_as::<_, SessionRow>(
             r#"UPDATE attendance.attendance_sessions
-                  SET check_out = $3,
-                      correction_reason = COALESCE($4, correction_reason),
-                      metadata = metadata || jsonb_build_object('updated_at', to_jsonb($5::timestamptz))
-                WHERE company_id = $1 AND id = $2
+                  SET check_out = $2,
+                      correction_reason = COALESCE($3, correction_reason),
+                      metadata = metadata || jsonb_build_object('updated_at', to_jsonb($4::timestamptz))
+                WHERE id = $1
                   AND check_out IS NULL
                   AND (metadata->>'deleted_at') IS NULL
                 RETURNING id, employee_id, date, check_in, check_out"#,
         )
-        .bind(company_id)
         .bind(session_id)
         .bind(check_out)
         .bind(correction_reason)
@@ -371,7 +352,6 @@ impl AttendanceWriteRepository {
     pub async fn correct_session(
         &self,
         conn: &mut PgConnection,
-        company_id: Uuid,
         session_id: Uuid,
         check_in: DateTime<Utc>,
         check_out: Option<DateTime<Utc>>,
@@ -380,16 +360,15 @@ impl AttendanceWriteRepository {
     ) -> Result<Option<SessionRow>, sqlx::Error> {
         sqlx::query_as::<_, SessionRow>(
             r#"UPDATE attendance.attendance_sessions
-                  SET check_in = $3,
-                      check_out = $4,
-                      date = $3::date,
-                      correction_reason = $5,
-                      metadata = metadata || jsonb_build_object('updated_at', to_jsonb($6::timestamptz))
-                WHERE company_id = $1 AND id = $2
+                  SET check_in = $2,
+                      check_out = $3,
+                      date = $2::date,
+                      correction_reason = $4,
+                      metadata = metadata || jsonb_build_object('updated_at', to_jsonb($5::timestamptz))
+                WHERE id = $1
                   AND (metadata->>'deleted_at') IS NULL
                 RETURNING id, employee_id, date, check_in, check_out"#,
         )
-        .bind(company_id)
         .bind(session_id)
         .bind(check_in)
         .bind(check_out)
@@ -405,7 +384,6 @@ impl AttendanceWriteRepository {
     pub async fn insert_clock_event(
         &self,
         conn: &mut PgConnection,
-        company_id: Uuid,
         session_id: Uuid,
         employee_id: Uuid,
         date: NaiveDate,
@@ -415,13 +393,12 @@ impl AttendanceWriteRepository {
     ) -> Result<Uuid, sqlx::Error> {
         sqlx::query_scalar::<_, Uuid>(
             r#"INSERT INTO attendance.attendance_clocks
-                   (id, company_id, session_id, employee_id, date, punched_at, direction, metadata)
-               VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6::punch_direction,
-                       jsonb_build_object('created_at', to_jsonb($7::timestamptz),
-                                          'updated_at', to_jsonb($7::timestamptz)))
+                   (id, session_id, employee_id, date, punched_at, direction, metadata)
+               VALUES (gen_random_uuid(), $1, $2, $3, $4, $5::punch_direction,
+                       jsonb_build_object('created_at', to_jsonb($6::timestamptz),
+                                          'updated_at', to_jsonb($6::timestamptz)))
                RETURNING id"#,
         )
-        .bind(company_id)
         .bind(session_id)
         .bind(employee_id)
         .bind(date)
@@ -436,12 +413,11 @@ impl AttendanceWriteRepository {
 
     /// Monotonic upsert of the day's clockin/clockout times-of-day: first-in sticks, last-out
     /// sticks (split shifts land as earliest-in / latest-out on one row). Conflicts on the
-    /// partial unique index `(company_id, employee_id, date) WHERE deleted_at IS NULL`.
+    /// tenant-free domain partial unique `(employee_id, date) WHERE deleted_at IS NULL`.
     #[allow(clippy::too_many_arguments)]
     pub async fn upsert_rollup_times(
         &self,
         conn: &mut PgConnection,
-        company_id: Uuid,
         employee_id: Uuid,
         date: NaiveDate,
         clockin: Option<NaiveTime>,
@@ -450,17 +426,16 @@ impl AttendanceWriteRepository {
     ) -> Result<(), sqlx::Error> {
         sqlx::query(
             r#"INSERT INTO attendance.attendances
-                   (id, company_id, employee_id, date, clockin, clockout, metadata)
-               VALUES (gen_random_uuid(), $1, $2, $3, $4, $5,
-                       jsonb_build_object('created_at', to_jsonb($6::timestamptz),
-                                          'updated_at', to_jsonb($6::timestamptz)))
-               ON CONFLICT (company_id, employee_id, date) WHERE (metadata->>'deleted_at') IS NULL
+                   (id, employee_id, date, clockin, clockout, metadata)
+               VALUES (gen_random_uuid(), $1, $2, $3, $4,
+                       jsonb_build_object('created_at', to_jsonb($5::timestamptz),
+                                          'updated_at', to_jsonb($5::timestamptz)))
+               ON CONFLICT (employee_id, date) WHERE (metadata->>'deleted_at') IS NULL
                DO UPDATE SET clockin  = COALESCE(attendances.clockin,  EXCLUDED.clockin),
                              clockout = COALESCE(EXCLUDED.clockout, attendances.clockout),
                              metadata = attendances.metadata || jsonb_build_object(
-                                 'updated_at', to_jsonb($6::timestamptz))"#,
+                                 'updated_at', to_jsonb($5::timestamptz))"#,
         )
-        .bind(company_id)
         .bind(employee_id)
         .bind(date)
         .bind(clockin)
@@ -479,7 +454,6 @@ impl AttendanceWriteRepository {
     pub async fn refresh_rollup_from_sessions(
         &self,
         conn: &mut PgConnection,
-        company_id: Uuid,
         employee_id: Uuid,
         date: NaiveDate,
         now: DateTime<Utc>,
@@ -487,10 +461,9 @@ impl AttendanceWriteRepository {
         let (clockin, clockout): (Option<NaiveTime>, Option<NaiveTime>) = sqlx::query_as(
             r#"SELECT MIN(check_in::time), MAX(check_out::time)
                  FROM attendance.attendance_sessions
-                WHERE company_id = $1 AND employee_id = $2 AND date = $3
+                WHERE employee_id = $1 AND date = $2
                   AND (metadata->>'deleted_at') IS NULL"#,
         )
-        .bind(company_id)
         .bind(employee_id)
         .bind(date)
         .fetch_one(&mut *conn)
@@ -500,11 +473,10 @@ impl AttendanceWriteRepository {
             // No live sessions for the day any more → the day is not a presence day.
             sqlx::query(
                 r#"UPDATE attendance.attendances
-                      SET metadata = metadata || jsonb_build_object('deleted_at', to_jsonb($4::timestamptz))
-                    WHERE company_id = $1 AND employee_id = $2 AND date = $3
+                      SET metadata = metadata || jsonb_build_object('deleted_at', to_jsonb($3::timestamptz))
+                    WHERE employee_id = $1 AND date = $2
                       AND (metadata->>'deleted_at') IS NULL"#,
             )
-            .bind(company_id)
             .bind(employee_id)
             .bind(date)
             .bind(now)
@@ -513,6 +485,6 @@ impl AttendanceWriteRepository {
             return Ok(());
         }
 
-        self.upsert_rollup_times(conn, company_id, employee_id, date, clockin, clockout, now).await
+        self.upsert_rollup_times(conn, employee_id, date, clockin, clockout, now).await
     }
 }

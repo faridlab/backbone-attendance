@@ -1,29 +1,57 @@
 //! Integrity probes — route-level (Wave 1 P2, H-3). The guarded composition locks generic
-//! mutation, the kiosk Tier B policy wires end-to-end, the EXCLUDE constraint surfaces as 409,
-//! and the company fence holds cross-tenant.
+//! mutation, the kiosk Tier B policy wires end-to-end, and the EXCLUDE constraint surfaces
+//! as 409.
 //!
-//! Every request runs behind the REAL `company_auth` middleware with a minted HS256 token —
-//! the same mounting a composing service uses in production (ADR-0008; the party probe-suite
-//! harness pattern). The DB runs the strict fence (RLS ENABLE+FORCE on every attendance table),
-//! so even this owner-role connection is fenced: raw assertion SQL runs inside
-//! `company_scope::with_company_scope` (re-exported at the crate root for this suite).
+//! Every request runs in-process via `tower::ServiceExt::oneshot` against live Postgres, with
+//! the caller identity inserted as a request extension the way the composing service's auth
+//! stack does in production (the module itself mounts no auth middleware; the `OrgContext`
+//! extractor rejects a request without one 401). The database is UNDECORATED — the module
+//! installs no fence of its own (ADR-0029), so assertion SQL reads plain. Fence behavior
+//! (cross-tenant invisibility under the composing service's org scope) is the composing
+//! service's to prove.
 //!
 //! DB: DATABASE_URL wins, else the module's local test DB
-//! (`backbone_attendance_test` on the metaphora dev postgres). Fresh random company ids per
+//! (`backbone_attendance_test` on the metaphora dev postgres). Fresh random employee ids per
 //! test so parallel runs never collide.
 
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
-use axum::middleware::from_fn_with_state;
+use axum::middleware::{self, Next};
+use axum::Router;
 use chrono::{Duration, Utc};
 use sqlx::PgPool;
 use tower::ServiceExt;
 use uuid::Uuid;
 
-use backbone_auth::company::{company_auth, CompanyVerifier};
-use backbone_attendance::{create_guarded_attendance_routes, company_scope, AttendanceModule};
+use backbone_auth::org::OrgContext;
+use backbone_attendance::{create_guarded_attendance_routes, AttendanceModule};
 
-const SECRET: &[u8] = b"attendance-integrity-probe-secret";
+/// The caller identity a request carries in production (inserted by the composing service's
+/// org auth layer). The module's handlers only require its PRESENCE — the extractor rejects
+/// an unauthenticated request 401 — and derive nothing from it; the DATABASE scope is the
+/// ambient request scope the host bound.
+fn caller() -> OrgContext {
+    OrgContext {
+        acting_unit_id: Uuid::new_v4(),
+        entitled_units: vec![],
+        legacy_company_id: None,
+        user_id: "integrity-probe".to_string(),
+    }
+}
+
+/// Wrap the router with the extension the host auth stack provides in production.
+fn with_caller(router: Router) -> Router {
+    let org = caller();
+    router.layer(middleware::from_fn(
+        move |mut req: axum::extract::Request, next: Next| {
+            let org = org.clone();
+            async move {
+                req.extensions_mut().insert(org);
+                next.run(req).await
+            }
+        },
+    ))
+}
 
 async fn pool() -> PgPool {
     let url = std::env::var("DATABASE_URL").unwrap_or_else(|_| {
@@ -36,47 +64,29 @@ async fn module(pool: &PgPool) -> AttendanceModule {
     AttendanceModule::builder().with_database(pool.clone()).build().unwrap()
 }
 
-fn token_for(company: Uuid) -> String {
-    let exp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() as usize
-        + 3600;
-    let claims = serde_json::json!({"sub": "integrity-probe", "company_id": company, "exp": exp});
-    jsonwebtoken::encode(
-        &jsonwebtoken::Header::default(),
-        &claims,
-        &jsonwebtoken::EncodingKey::from_secret(SECRET),
-    ).unwrap()
-}
-
 async fn req(
     app: axum::Router,
     method: &str,
     uri: &str,
-    token: &str,
     body: String,
 ) -> StatusCode {
-    let app = app.route_layer(from_fn_with_state(
-        CompanyVerifier::hs256(SECRET),
-        company_auth,
-    ));
+    let app = with_caller(app);
     let r = Request::builder().method(method).uri(uri)
         .header("content-type", "application/json")
-        .header("authorization", format!("Bearer {token}"))
         .body(Body::from(body)).unwrap();
     app.oneshot(r).await.unwrap().status()
 }
 
 /// Issue the standard test PIN for `employee`/`badge` (fresh ids per test, so no clashes).
-async fn issue_pin(app: axum::Router, t: &str, employee: Uuid, badge: &str) {
+async fn issue_pin(app: axum::Router, employee: Uuid, badge: &str) {
     let body = format!(r#"{{"employeeId":"{employee}","badgeCode":"{badge}","pin":"4321"}}"#);
-    let s = req(app, "POST", "/attendance/kiosk/pins", t, body).await;
+    let s = req(app, "POST", "/attendance/kiosk/pins", body).await;
     assert_eq!(s, StatusCode::CREATED, "pin issue");
 }
 
-/// Scoped scalar read for assertions — binds `app.company_id` the way the request scope does
-/// so the FORCE-fenced tables answer under RLS (an unbound connection sees 0 rows by design).
-/// The SQL embeds employee/date filters inline; $1 stays for the company.
-async fn scoped_one<T>(pool: &PgPool, company: Uuid, sql: String) -> T
+/// Scalar read for assertions — the database is undecorated, so plain pool reads see the
+/// module's rows. The SQL embeds employee/date filters inline.
+async fn one<T>(pool: &PgPool, sql: String) -> T
 where
     T: for<'r> sqlx::Decode<'r, sqlx::Postgres>
         + sqlx::Type<sqlx::Postgres>
@@ -84,9 +94,7 @@ where
         + Sync
         + Unpin,
 {
-    company_scope::with_company_scope(Some(company), async move {
-        sqlx::query_scalar::<_, T>(&sql).fetch_one(pool).await.unwrap()
-    }).await
+    sqlx::query_scalar::<_, T>(&sql).fetch_one(pool).await.unwrap()
 }
 
 // ─── ATT-1: kiosk punch happy path — in, out, and the daily rollup ────────────
@@ -95,32 +103,30 @@ where
 async fn guarded_kiosk_punch_flow_and_rollup() {
     let pool = pool().await;
     let m = module(&pool).await;
-    let company = Uuid::new_v4();
     let employee = Uuid::new_v4();
     let badge = format!("B-{}", &employee.to_string()[..8]);
-    let t = token_for(company);
 
-    issue_pin(create_guarded_attendance_routes(&m), &t, employee, &badge).await;
+    issue_pin(create_guarded_attendance_routes(&m), employee, &badge).await;
 
     // Punch in: auto-direction on no open session ⇒ in.
     let punch = format!(r#"{{"badgeCode":"{badge}","pin":"4321"}}"#);
-    let s = req(create_guarded_attendance_routes(&m), "POST", "/attendance/kiosk/punch", &t, punch.clone()).await;
+    let s = req(create_guarded_attendance_routes(&m), "POST", "/attendance/kiosk/punch", punch.clone()).await;
     assert_eq!(s, StatusCode::OK, "kiosk punch-in");
 
     // Punch out: open session exists ⇒ out. Spaced past PIN_ATTEMPT_SPACING — the uniform 1s
     // attempt spacing is the kiosk debounce; a double-tap inside 1s is 409 attempt_too_soon.
     tokio::time::sleep(std::time::Duration::from_millis(1100)).await;
-    let s = req(create_guarded_attendance_routes(&m), "POST", "/attendance/kiosk/punch", &t, punch).await;
+    let s = req(create_guarded_attendance_routes(&m), "POST", "/attendance/kiosk/punch", punch).await;
     assert_eq!(s, StatusCode::OK, "kiosk punch-out");
 
     // The daily rollup landed with both wall-times (payroll's present_days seam).
-    let n: i64 = scoped_one(&pool, company, format!(
+    let n: i64 = one(&pool, format!(
         "SELECT count(*) FROM attendance.attendances WHERE employee_id = '{employee}' AND clockin IS NOT NULL AND clockout IS NOT NULL"
     )).await;
     assert_eq!(n, 1, "one rollup row with both times after an in+out pair");
 
     // And the immutable event stream recorded both directions.
-    let events: i64 = scoped_one(&pool, company, format!(
+    let events: i64 = one(&pool, format!(
         "SELECT count(*) FROM attendance.attendance_clocks WHERE employee_id = '{employee}'"
     )).await;
     assert_eq!(events, 2, "one clock event per punch");
@@ -132,25 +138,23 @@ async fn guarded_kiosk_punch_flow_and_rollup() {
 async fn guarded_kiosk_wrong_pin_counts_and_401s() {
     let pool = pool().await;
     let m = module(&pool).await;
-    let company = Uuid::new_v4();
     let employee = Uuid::new_v4();
     let badge = format!("B-{}", &employee.to_string()[..8]);
-    let t = token_for(company);
 
-    issue_pin(create_guarded_attendance_routes(&m), &t, employee, &badge).await;
+    issue_pin(create_guarded_attendance_routes(&m), employee, &badge).await;
 
     // Two spaced wrong PINs (the 1s anti-hammering spacing demands real gaps).
     for _ in 0..2 {
         tokio::time::sleep(std::time::Duration::from_millis(1100)).await;
         let wrong = format!(r#"{{"badgeCode":"{badge}","pin":"9999"}}"#);
-        let s = req(create_guarded_attendance_routes(&m), "POST", "/attendance/kiosk/punch", &t, wrong).await;
+        let s = req(create_guarded_attendance_routes(&m), "POST", "/attendance/kiosk/punch", wrong).await;
         assert_eq!(s, StatusCode::UNAUTHORIZED, "wrong pin is 401");
     }
 
     let sql = format!(
         "SELECT failed_attempts FROM attendance.kiosk_pins WHERE employee_id = '{employee}'"
     );
-    let attempts: i32 = scoped_one(&pool, company, sql).await;
+    let attempts: i32 = one(&pool, sql).await;
     assert_eq!(attempts, 2, "failed attempts recorded");
 }
 
@@ -160,9 +164,7 @@ async fn guarded_kiosk_wrong_pin_counts_and_401s() {
 async fn guarded_punch_overlap_rejected_by_exclude() {
     let pool = pool().await;
     let m = module(&pool).await;
-    let company = Uuid::new_v4();
     let employee = Uuid::new_v4();
-    let t = token_for(company);
 
     let base = Utc::now() - Duration::days(2);
     let in1 = (base + Duration::hours(9)).to_rfc3339();
@@ -172,12 +174,12 @@ async fn guarded_punch_overlap_rejected_by_exclude() {
     let punch_in = format!(
         r#"{{"employeeId":"{employee}","direction":"in","at":"{in1}","correctionReason":"backdate seed"}}"#
     );
-    let s = req(create_guarded_attendance_routes(&m), "POST", "/attendance/punch", &t, punch_in).await;
+    let s = req(create_guarded_attendance_routes(&m), "POST", "/attendance/punch", punch_in).await;
     assert_eq!(s, StatusCode::OK, "seed punch-in");
     let punch_out = format!(
         r#"{{"employeeId":"{employee}","direction":"out","at":"{out1}","correctionReason":"backdate seed"}}"#
     );
-    let s = req(create_guarded_attendance_routes(&m), "POST", "/attendance/punch", &t, punch_out).await;
+    let s = req(create_guarded_attendance_routes(&m), "POST", "/attendance/punch", punch_out).await;
     assert_eq!(s, StatusCode::OK, "seed punch-out");
 
     // A second session overlapping the closed one must hit attendance_sessions_no_overlap.
@@ -186,7 +188,7 @@ async fn guarded_punch_overlap_rejected_by_exclude() {
     let overlapping = format!(
         r#"{{"employeeId":"{employee}","direction":"in","at":"{in2}","correctionReason":"deliberate overlap seed"}}"#
     );
-    let s = req(create_guarded_attendance_routes(&m), "POST", "/attendance/punch", &t, overlapping).await;
+    let s = req(create_guarded_attendance_routes(&m), "POST", "/attendance/punch", overlapping).await;
     assert_eq!(s, StatusCode::CONFLICT, "overlapping punch-in must be 409 session_overlap");
 }
 
@@ -196,12 +198,10 @@ async fn guarded_punch_overlap_rejected_by_exclude() {
 async fn guarded_punch_out_without_open_session_409s() {
     let pool = pool().await;
     let m = module(&pool).await;
-    let company = Uuid::new_v4();
     let employee = Uuid::new_v4();
-    let t = token_for(company);
 
     let body = format!(r#"{{"employeeId":"{employee}","direction":"out"}}"#);
-    let s = req(create_guarded_attendance_routes(&m), "POST", "/attendance/punch", &t, body).await;
+    let s = req(create_guarded_attendance_routes(&m), "POST", "/attendance/punch", body).await;
     assert_eq!(s, StatusCode::CONFLICT, "no open session must be 409");
 }
 
@@ -211,26 +211,24 @@ async fn guarded_punch_out_without_open_session_409s() {
 async fn guarded_correction_requires_reason() {
     let pool = pool().await;
     let m = module(&pool).await;
-    let company = Uuid::new_v4();
     let employee = Uuid::new_v4();
-    let t = token_for(company);
 
     let at = (Utc::now() - Duration::days(1) + Duration::hours(9)).to_rfc3339();
     let punch = format!(r#"{{"employeeId":"{employee}","direction":"in","at":"{at}","correctionReason":"seed"}}"#);
-    req(create_guarded_attendance_routes(&m), "POST", "/attendance/punch", &t, punch).await;
+    req(create_guarded_attendance_routes(&m), "POST", "/attendance/punch", punch).await;
 
-    // Find the session id (scoped).
+    // Find the session id.
     let sql = format!(
         "SELECT id FROM attendance.attendance_sessions WHERE employee_id = '{employee}' LIMIT 1"
     );
-    let session_id: Uuid = scoped_one(&pool, company, sql).await;
+    let session_id: Uuid = one(&pool, sql).await;
 
     let empty_reason = format!(
         r#"{{"checkIn":"{at}","checkOut":null,"reason":"   "}}"#
     );
     let s = req(
         create_guarded_attendance_routes(&m), "POST",
-        &format!("/attendance/sessions/{session_id}/correct"), &t, empty_reason,
+        &format!("/attendance/sessions/{session_id}/correct"), empty_reason,
     ).await;
     assert_eq!(s, StatusCode::UNPROCESSABLE_ENTITY, "blank reason must be 422");
 }
@@ -241,12 +239,10 @@ async fn guarded_correction_requires_reason() {
 async fn guarded_weak_pin_422() {
     let pool = pool().await;
     let m = module(&pool).await;
-    let company = Uuid::new_v4();
     let employee = Uuid::new_v4();
-    let t = token_for(company);
 
     let body = format!(r#"{{"employeeId":"{employee}","badgeCode":"BAD","pin":"12"}}"#);
-    let s = req(create_guarded_attendance_routes(&m), "POST", "/attendance/kiosk/pins", &t, body).await;
+    let s = req(create_guarded_attendance_routes(&m), "POST", "/attendance/kiosk/pins", body).await;
     assert_eq!(s, StatusCode::UNPROCESSABLE_ENTITY, "2-digit pin must be 422 weak_pin");
 }
 
@@ -256,13 +252,12 @@ async fn guarded_weak_pin_422() {
 async fn guarded_future_punch_422() {
     let pool = pool().await;
     let m = module(&pool).await;
-    let t = token_for(Uuid::new_v4());
 
     // A punch dated beyond the skew allowance would open a session the employee can never
     // close (check_out <= check_in) — refused before any SQL runs.
     let future = (Utc::now() + Duration::minutes(30)).to_rfc3339();
     let body = format!(r#"{{"employeeId":"{}","direction":"in","at":"{future}"}}"#, Uuid::new_v4());
-    let s = req(create_guarded_attendance_routes(&m), "POST", "/attendance/punch", &t, body).await;
+    let s = req(create_guarded_attendance_routes(&m), "POST", "/attendance/punch", body).await;
     assert_eq!(s, StatusCode::UNPROCESSABLE_ENTITY, "future-dated punch must be 422 future_punch");
 }
 
@@ -270,11 +265,10 @@ async fn guarded_future_punch_422() {
 async fn guarded_backdated_punch_requires_reason() {
     let pool = pool().await;
     let m = module(&pool).await;
-    let t = token_for(Uuid::new_v4());
 
     let backdated = (Utc::now() - Duration::hours(2)).to_rfc3339();
     let no_reason = format!(r#"{{"employeeId":"{}","direction":"in","at":"{backdated}"}}"#, Uuid::new_v4());
-    let s = req(create_guarded_attendance_routes(&m), "POST", "/attendance/punch", &t, no_reason).await;
+    let s = req(create_guarded_attendance_routes(&m), "POST", "/attendance/punch", no_reason).await;
     assert_eq!(s, StatusCode::UNPROCESSABLE_ENTITY, "backdated punch without reason must be 422");
 
     let with_reason = format!(
@@ -282,7 +276,7 @@ async fn guarded_backdated_punch_requires_reason() {
         Uuid::new_v4()
     );
     // With a reason the backdate proceeds (200 — the session opens on the backdated instant).
-    let s = req(create_guarded_attendance_routes(&m), "POST", "/attendance/punch", &t, with_reason).await;
+    let s = req(create_guarded_attendance_routes(&m), "POST", "/attendance/punch", with_reason).await;
     assert_eq!(s, StatusCode::OK, "backdated punch with reason is allowed");
 }
 
@@ -292,39 +286,17 @@ async fn guarded_backdated_punch_requires_reason() {
 async fn kiosk_pin_reads_not_exposed() {
     let pool = pool().await;
     let m = module(&pool).await;
-    let t = token_for(Uuid::new_v4());
 
-    let s = req(create_guarded_attendance_routes(&m), "GET", "/attendance/kiosk-pins", &t, String::new()).await;
+    let s = req(create_guarded_attendance_routes(&m), "GET", "/attendance/kiosk-pins", String::new()).await;
     assert!(
         s == StatusCode::NOT_FOUND || s == StatusCode::METHOD_NOT_ALLOWED,
         "kiosk_pin generic GET must not be mounted; got {s}"
     );
-    let s = req(create_guarded_attendance_routes(&m), "GET", "/kiosk_pins", &t, String::new()).await;
+    let s = req(create_guarded_attendance_routes(&m), "GET", "/kiosk_pins", String::new()).await;
     assert!(
         s == StatusCode::NOT_FOUND || s == StatusCode::METHOD_NOT_ALLOWED,
         "kiosk_pin generic GET must not be mounted; got {s}"
     );
-}
-
-// ─── ATT-8: cross-company badge invisible (the fence, live) ───────────────────
-
-#[tokio::test]
-async fn cross_company_badge_invisible() {
-    let pool = pool().await;
-    let m = module(&pool).await;
-    let company_a = Uuid::new_v4();
-    let employee = Uuid::new_v4();
-    let badge = format!("B-{}", &employee.to_string()[..8]);
-    let t_a = token_for(company_a);
-
-    issue_pin(create_guarded_attendance_routes(&m), &t_a, employee, &badge).await;
-
-    // Company B's token punching company A's badge: the pin lookup runs under B's RLS scope
-    // and finds nothing — 404, never a cross-tenant punch.
-    let t_b = token_for(Uuid::new_v4());
-    let punch = format!(r#"{{"badgeCode":"{badge}","pin":"4321"}}"#);
-    let s = req(create_guarded_attendance_routes(&m), "POST", "/attendance/kiosk/punch", &t_b, punch).await;
-    assert_eq!(s, StatusCode::NOT_FOUND, "other company's badge must be invisible");
 }
 
 // ─── ATT-9: unauthenticated write → 401 ───────────────────────────────────────
@@ -334,9 +306,13 @@ async fn unauthenticated_write_401() {
     let pool = pool().await;
     let m = module(&pool).await;
 
+    // No caller extension inserted — the OrgContext extractor rejects the request 401.
     let body = r#"{"employeeId":"00000000-0000-0000-0000-000000000000","direction":"in"}"#.to_string();
-    let s = req(create_guarded_attendance_routes(&m), "POST", "/attendance/punch", "not-a-token", body).await;
-    assert_eq!(s, StatusCode::UNAUTHORIZED, "no valid token must be 401");
+    let r = Request::builder().method("POST").uri("/attendance/punch")
+        .header("content-type", "application/json")
+        .body(Body::from(body)).unwrap();
+    let s = create_guarded_attendance_routes(&m).oneshot(r).await.unwrap().status();
+    assert_eq!(s, StatusCode::UNAUTHORIZED, "no caller identity must be 401");
 }
 
 // ─── pure policy units (no DB) ────────────────────────────────────────────────

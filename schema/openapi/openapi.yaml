@@ -1491,15 +1491,11 @@ components:
       type: object
       required:
         - id
-        - company_id
         - employee_id
         - date
         - metadata
       properties:
         id:
-          type: string
-          format: uuid
-        company_id:
           type: string
           format: uuid
         employee_id:
@@ -1544,14 +1540,10 @@ components:
     CreateAttendanceRequest:
       type: object
       required:
-        - company_id
         - employee_id
         - date
         - metadata
       properties:
-        company_id:
-          type: string
-          format: uuid
         employee_id:
           type: string
           format: uuid
@@ -1581,14 +1573,10 @@ components:
     UpdateAttendanceRequest:
       type: object
       required:
-        - company_id
         - employee_id
         - date
         - metadata
       properties:
-        company_id:
-          type: string
-          format: uuid
         employee_id:
           type: string
           format: uuid
@@ -1618,9 +1606,6 @@ components:
     PatchAttendanceRequest:
       type: object
       properties:
-        company_id:
-          type: string
-          format: uuid
         employee_id:
           type: string
           format: uuid
@@ -1661,7 +1646,6 @@ components:
       type: object
       required:
         - id
-        - company_id
         - session_id
         - employee_id
         - date
@@ -1670,9 +1654,6 @@ components:
         - metadata
       properties:
         id:
-          type: string
-          format: uuid
-        company_id:
           type: string
           format: uuid
         session_id:
@@ -1708,7 +1689,6 @@ components:
     CreateAttendanceClockRequest:
       type: object
       required:
-        - company_id
         - session_id
         - employee_id
         - date
@@ -1716,9 +1696,6 @@ components:
         - direction
         - metadata
       properties:
-        company_id:
-          type: string
-          format: uuid
         session_id:
           type: string
           format: uuid
@@ -1739,7 +1716,6 @@ components:
     UpdateAttendanceClockRequest:
       type: object
       required:
-        - company_id
         - session_id
         - employee_id
         - date
@@ -1747,9 +1723,6 @@ components:
         - direction
         - metadata
       properties:
-        company_id:
-          type: string
-          format: uuid
         session_id:
           type: string
           format: uuid
@@ -1770,9 +1743,6 @@ components:
     PatchAttendanceClockRequest:
       type: object
       properties:
-        company_id:
-          type: string
-          format: uuid
         session_id:
           type: string
           format: uuid
@@ -1804,7 +1774,6 @@ components:
       type: object
       required:
         - id
-        - company_id
         - employee_id
         - date
         - check_in
@@ -1812,9 +1781,6 @@ components:
         - metadata
       properties:
         id:
-          type: string
-          format: uuid
-        company_id:
           type: string
           format: uuid
         employee_id:
@@ -1854,16 +1820,12 @@ components:
     CreateAttendanceSessionRequest:
       type: object
       required:
-        - company_id
         - employee_id
         - date
         - check_in
         - source
         - metadata
       properties:
-        company_id:
-          type: string
-          format: uuid
         employee_id:
           type: string
           format: uuid
@@ -1888,16 +1850,12 @@ components:
     UpdateAttendanceSessionRequest:
       type: object
       required:
-        - company_id
         - employee_id
         - date
         - check_in
         - source
         - metadata
       properties:
-        company_id:
-          type: string
-          format: uuid
         employee_id:
           type: string
           format: uuid
@@ -1922,9 +1880,6 @@ components:
     PatchAttendanceSessionRequest:
       type: object
       properties:
-        company_id:
-          type: string
-          format: uuid
         employee_id:
           type: string
           format: uuid
@@ -1960,7 +1915,6 @@ components:
       type: object
       required:
         - id
-        - company_id
         - employee_id
         - badge_code
         - pin_hash
@@ -1968,9 +1922,6 @@ components:
         - metadata
       properties:
         id:
-          type: string
-          format: uuid
-        company_id:
           type: string
           format: uuid
         employee_id:
@@ -2014,16 +1965,12 @@ components:
     CreateKioskPinRequest:
       type: object
       required:
-        - company_id
         - employee_id
         - badge_code
         - pin_hash
         - failed_attempts
         - metadata
       properties:
-        company_id:
-          type: string
-          format: uuid
         employee_id:
           type: string
           format: uuid
@@ -2052,16 +1999,12 @@ components:
     UpdateKioskPinRequest:
       type: object
       required:
-        - company_id
         - employee_id
         - badge_code
         - pin_hash
         - failed_attempts
         - metadata
       properties:
-        company_id:
-          type: string
-          format: uuid
         employee_id:
           type: string
           format: uuid
@@ -2090,9 +2033,6 @@ components:
     PatchKioskPinRequest:
       type: object
       properties:
-        company_id:
-          type: string
-          format: uuid
         employee_id:
           type: string
           format: uuid
