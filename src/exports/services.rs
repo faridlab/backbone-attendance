@@ -63,8 +63,9 @@ pub trait AttendanceQueryService: Send + Sync {
     /// parse the JSON themselves. Days without overtime (or before any shift-aware overlay has
     /// stamped the key) contribute zero, so this degrades to 0 — never negative, never an error.
     ///
-    /// `company_id` is a LEGACY TWIN (ADR-0029): accepted for compatibility, ignored — the read
-    /// is scoped by the composing service's org fence, never by this argument.
+    /// The read is scoped by the composing service's org fence. It carried a legacy company
+    /// argument for compatibility through the tenancy sweep; that argument is gone, because an
+    /// ignored parameter is a standing invitation to pass the wrong thing.
     async fn overtime_hours(
         &self,
         company_id: Uuid,
@@ -85,7 +86,6 @@ pub trait AttendanceQueryService: Send + Sync {
     /// is scoped by the composing service's org fence, never by this argument.
     async fn overtime_stretches(
         &self,
-        company_id: Uuid,
         employee_id: Uuid,
         from: NaiveDate,
         to: NaiveDate,

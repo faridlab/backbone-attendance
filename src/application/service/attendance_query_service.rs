@@ -114,7 +114,6 @@ impl AttendanceQueryService for AttendanceModule {
 
     async fn overtime_stretches(
         &self,
-        _company_id: Uuid, // legacy twin (ADR-0029): ignored — scoping is the composer's fence
         employee_id: Uuid,
         from: NaiveDate,
         to: NaiveDate,
