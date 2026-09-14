@@ -12,8 +12,9 @@
 //!
 //! Tenancy: none, by design (ADR-0029) — the module carries no tenant key; reads are scoped by
 //! the COMPOSING service's fence (the repo relays the ambient org scope). The read-port methods
-//! still ACCEPT a `company_id` argument as a legacy twin for unstripped consumers: it is ignored
-//! here (never a query predicate) and will be removed when those consumers re-point.
+//! carried a legacy company argument through the tenancy sweep for consumers that had not yet
+//! re-pointed; it is gone, because a parameter nothing reads is a standing invitation to pass
+//! the wrong value.
 
 use anyhow::Result;
 use async_trait::async_trait;
