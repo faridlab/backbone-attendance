@@ -46,12 +46,9 @@ pub trait AttendanceQueryService: Send + Sync {
     /// (`absences = working_days − present_days − paid_leave_days`), so this does NOT join leave
     /// or schedule — attendance only.
     ///
-    /// `company_id` is a LEGACY TWIN (ADR-0029): the module carries no tenant key, so the
-    /// argument is accepted for compatibility with unstripped consumers and IGNORED — it never
     /// scopes the read. Row visibility follows the composing service's org fence.
     async fn present_days(
         &self,
-        company_id: Uuid,
         employee_id: Uuid,
         from: NaiveDate,
         to: NaiveDate,
@@ -68,7 +65,6 @@ pub trait AttendanceQueryService: Send + Sync {
     /// ignored parameter is a standing invitation to pass the wrong thing.
     async fn overtime_hours(
         &self,
-        company_id: Uuid,
         employee_id: Uuid,
         from: NaiveDate,
         to: NaiveDate,
@@ -82,8 +78,6 @@ pub trait AttendanceQueryService: Send + Sync {
     /// against a band table must use this form. Empty when the employee has no overtime days
     /// in range; never negative, never an error.
     ///
-    /// `company_id` is a LEGACY TWIN (ADR-0029): accepted for compatibility, ignored — the read
-    /// is scoped by the composing service's org fence, never by this argument.
     async fn overtime_stretches(
         &self,
         employee_id: Uuid,

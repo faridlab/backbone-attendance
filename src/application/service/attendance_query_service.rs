@@ -88,7 +88,6 @@ impl AttendanceQueryService for AttendanceModule {
 
     async fn present_days(
         &self,
-        _company_id: Uuid, // legacy twin (ADR-0029): ignored — scoping is the composer's fence
         employee_id: Uuid,
         from: NaiveDate,
         to: NaiveDate,
@@ -101,7 +100,6 @@ impl AttendanceQueryService for AttendanceModule {
 
     async fn overtime_hours(
         &self,
-        _company_id: Uuid, // legacy twin (ADR-0029): ignored — scoping is the composer's fence
         employee_id: Uuid,
         from: NaiveDate,
         to: NaiveDate,
