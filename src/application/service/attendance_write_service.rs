@@ -191,9 +191,23 @@ pub struct PunchOutcome {
     pub check_in: DateTime<Utc>,
     pub check_out: Option<DateTime<Utc>>,
     pub business_date: NaiveDate,
+    /// True when the punch was deduped: a repeat of the same direction
+    /// landed within the dedupe window and NOTHING new was written. The
+    /// outcome describes the punch that already existed, so a double tap
+    /// answers the same shape it would have the first time.
+    pub duplicate: bool,
+    /// True when this punch was a BREAK half (start or end): the session
+    /// stayed open and no rollup bound moved.
+    pub is_break: bool,
 }
 
 // ─── the service ──────────────────────────────────────────────────────────────
+
+/// A repeat punch of the same direction within this window of the last one is
+/// a double tap, deduped to the original outcome — not a refusal, and not a
+/// second row. Long enough to cover a retry after a timeout, short enough
+/// that a genuine second punch (a real break) is never swallowed.
+const PUNCH_DEDUPE_WINDOW: chrono::Duration = chrono::Duration::seconds(30);
 
 pub struct AttendanceWriteService {
     pool: PgPool,
@@ -303,6 +317,30 @@ impl AttendanceWriteService {
 
         let open = self.repo.find_open_session(&mut tx, employee_id).await?;
 
+        // A double tap dedupes: if the last clock event this employee made is
+        // the same direction and within the window, the tap answers the
+        // outcome that already exists and writes nothing. The session-state
+        // errors below stay for taps that arrive LATE (a second punch-in an
+        // hour into an open session is a real mistake worth refusing).
+        if let Some(last) = self.repo.last_clock_event(&mut tx, employee_id).await? {
+            if last.direction == direction.to_string()
+                && punched_at.signed_duration_since(last.punched_at) <= PUNCH_DEDUPE_WINDOW
+            {
+                tx.commit().await?;
+                return Ok(PunchOutcome {
+                    session_id: last.session_id,
+                    employee_id,
+                    direction,
+                    punched_at: last.punched_at,
+                    check_in: open.as_ref().map(|s| s.check_in).unwrap_or(last.punched_at),
+                    check_out: open.is_none().then_some(last.punched_at),
+                    business_date: last.date,
+                    duplicate: true,
+                    is_break: false,
+                });
+            }
+        }
+
         let outcome = match (direction, open) {
             (PunchDirection::In, Some(_)) => Err(AttendanceWriteError::SessionStillOpen),
             (PunchDirection::In, None) => {
@@ -318,6 +356,85 @@ impl AttendanceWriteService {
 
         tx.commit().await?;
         Ok(outcome)
+    }
+
+    // ─── breaks: leave and return mid-session ────────────────────────────────
+
+    /// Start a break: an Out-shaped punch on the OPEN session that does not
+    /// close it. The clock row carries the break marker in its metadata, so a
+    /// later read can tell "went home" from "stepped out" — the rollup bounds
+    /// do not move and the session stays open either way.
+    pub async fn break_start(
+        &self,
+        employee_id: Uuid,
+        // The origin is part of the verb's contract (the route discriminates
+        // kiosk / self-service / admin); the row itself does not carry it.
+        _source: PunchSource,
+        at: Option<DateTime<Utc>>,
+    ) -> Result<PunchOutcome, AttendanceWriteError> {
+        let now = Utc::now();
+        let punched_at = validate_punch_time(at, None, now)?;
+        let mut tx = self.pool.begin().await?;
+        if let Some(scope) = org_scope::current_org_scope() {
+            org_scope::bind_org_scope_on(&mut tx, &scope).await?;
+        }
+        let open = self
+            .repo
+            .find_open_session(&mut tx, employee_id)
+            .await?
+            .ok_or(AttendanceWriteError::NoOpenSession)?;
+        self.repo
+            .insert_clock_event(&mut tx, open.id, employee_id, open.date, punched_at, "out", now, true)
+            .await?;
+        tx.commit().await?;
+        Ok(PunchOutcome {
+            session_id: open.id,
+            employee_id,
+            direction: PunchDirection::Out,
+            punched_at,
+            check_in: open.check_in,
+            check_out: None,
+            business_date: open.date,
+            duplicate: false,
+            is_break: true,
+        })
+    }
+
+    /// End a break: an In-shaped punch on the OPEN session that does not open
+    /// one. Dedupes like a punch: a double tap on the break button does not
+    /// record two returns.
+    pub async fn break_end(
+        &self,
+        employee_id: Uuid,
+        _source: PunchSource,
+        at: Option<DateTime<Utc>>,
+    ) -> Result<PunchOutcome, AttendanceWriteError> {
+        let now = Utc::now();
+        let punched_at = validate_punch_time(at, None, now)?;
+        let mut tx = self.pool.begin().await?;
+        if let Some(scope) = org_scope::current_org_scope() {
+            org_scope::bind_org_scope_on(&mut tx, &scope).await?;
+        }
+        let open = self
+            .repo
+            .find_open_session(&mut tx, employee_id)
+            .await?
+            .ok_or(AttendanceWriteError::NoOpenSession)?;
+        self.repo
+            .insert_clock_event(&mut tx, open.id, employee_id, open.date, punched_at, "in", now, true)
+            .await?;
+        tx.commit().await?;
+        Ok(PunchOutcome {
+            session_id: open.id,
+            employee_id,
+            direction: PunchDirection::In,
+            punched_at,
+            check_in: open.check_in,
+            check_out: None,
+            business_date: open.date,
+            duplicate: false,
+            is_break: true,
+        })
     }
 
     // ─── session correction (admin, mandatory reason) ─────────────────────────
@@ -496,7 +613,7 @@ impl AttendanceWriteService {
             .await
             .map_err(map_overlap)?;
         self.repo
-            .insert_clock_event(&mut *conn, session.id, employee_id, business_date, check_in, "in", now)
+            .insert_clock_event(&mut *conn, session.id, employee_id, business_date, check_in, "in", now, false)
             .await?;
         self.repo
             .upsert_rollup_times(&mut *conn, employee_id, business_date, Some(check_in.time()), None, now)
@@ -525,7 +642,7 @@ impl AttendanceWriteService {
             .ok_or(AttendanceWriteError::SessionAlreadyClosed)?;
 
         self.repo
-            .insert_clock_event(&mut *conn, closed.id, closed.employee_id, closed.date, check_out, "out", now)
+            .insert_clock_event(&mut *conn, closed.id, closed.employee_id, closed.date, check_out, "out", now, false)
             .await?;
         self.repo
             .upsert_rollup_times(&mut *conn, closed.employee_id, closed.date, None, Some(check_out.time()), now)
@@ -564,6 +681,8 @@ impl SessionRow {
             check_in: self.check_in,
             check_out: self.check_out,
             business_date: self.date,
+            duplicate: false,
+            is_break: false,
         }
     }
 }

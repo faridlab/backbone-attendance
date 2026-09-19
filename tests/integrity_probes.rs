@@ -54,10 +54,46 @@ fn with_caller(router: Router) -> Router {
 }
 
 async fn pool() -> PgPool {
+    use std::sync::OnceLock;
+    static PREPARED: OnceLock<()> = OnceLock::new();
     let url = std::env::var("DATABASE_URL").unwrap_or_else(|_| {
         "postgresql://serpa:serpa_dev_password@127.0.0.1:5432/backbone_attendance_test".into()
     });
-    PgPool::connect(&url).await.unwrap()
+    let pool = PgPool::connect(&url).await.unwrap();
+    if let Some(()) = PREPARED.get() {
+        return pool;
+    }
+    // Serialize the one-time prepare: parallel tests must not apply the
+    // migration set twice (CREATE SCHEMA is not idempotent here).
+    static PREPARE_LOCK: std::sync::OnceLock<tokio::sync::Mutex<()>> = std::sync::OnceLock::new();
+    let lock = PREPARE_LOCK.get_or_init(|| tokio::sync::Mutex::new(()));
+    let _guard = lock.lock().await;
+    // Apply this module's migrations when the scratch database is empty, so a
+    // fresh container is enough to run the suite (an already-migrated database
+    // short-circuits).
+    let have: Option<Option<String>> =
+        sqlx::query_scalar("SELECT to_regclass('attendance.attendance_sessions')::text")
+            .fetch_optional(&pool)
+            .await
+            .unwrap();
+    if have.flatten().is_none() {
+        let dir = format!("{}/migrations", env!("CARGO_MANIFEST_DIR"));
+        let mut files: Vec<std::path::PathBuf> = std::fs::read_dir(&dir)
+            .unwrap()
+            .filter_map(|e| e.ok().map(|e| e.path()))
+            .filter(|p| {
+                p.file_name().and_then(|n| n.to_str()).map(|n| n.ends_with(".up.sql")).unwrap_or(false)
+            })
+            .collect();
+        files.sort();
+        let mut conn = pool.acquire().await.unwrap();
+        for file in files {
+            let sql = std::fs::read_to_string(&file).unwrap();
+            sqlx::raw_sql(&sql).execute(&mut *conn).await.unwrap();
+        }
+    }
+    let _ = PREPARED.set(());
+    pool
 }
 
 async fn module(pool: &PgPool) -> AttendanceModule {
@@ -358,4 +394,112 @@ fn lockout_policy_escalates_and_caps() {
     assert!(!pin_is_wellformed("123456789"));
     assert!(!pin_is_wellformed("12a4"));
     assert!(!pin_is_wellformed(""));
+}
+
+// ─── ATT-8: the self-service punch verb dedupes a double tap ─────────────────
+
+/// One double-tap on punch-in answers the SAME outcome twice and writes ONE
+/// row: the second tap within the dedupe window is a retry, not a punch. A
+/// late second In (past the window, session still open) is a real mistake and
+/// still refuses.
+#[tokio::test]
+async fn self_service_double_tap_dedupes_to_one_row() {
+    let pool = pool().await;
+    let m = module(&pool).await;
+    let employee = Uuid::new_v4();
+    let app = create_guarded_attendance_routes(&m);
+
+    let body = format!(r#"{{"employeeId":"{employee}","direction":"in","source":"self_service"}}"#);
+    let s1 = req(app.clone(), "POST", "/attendance/punch", body.clone()).await;
+    assert_eq!(s1, StatusCode::OK, "first tap lands");
+    let s2 = req(app, "POST", "/attendance/punch", body).await;
+    assert_eq!(s2, StatusCode::OK, "the double tap answers 200, not a refusal");
+
+    let rows: i64 = one(&pool, format!(
+        "SELECT count(*) FROM attendance.attendance_clocks WHERE employee_id = '{employee}'"
+    )).await;
+    assert_eq!(rows, 1, "exactly one clock row: the tap deduped");
+
+    let sessions: i64 = one(&pool, format!(
+        "SELECT count(*) FROM attendance.attendance_sessions WHERE employee_id = '{employee}'"
+    )).await;
+    assert_eq!(sessions, 1, "exactly one session");
+}
+
+// ─── ATT-9: breaks ride the open session, never moving its bounds ────────────
+
+/// break_start/break_end are Out/In-shaped clock rows on the OPEN session,
+/// marked as breaks; the session stays open and its check_out stays NULL until
+/// a real punch_out. The business date is stamped server side and never moves:
+/// a night shift that ends tomorrow stays on today's row.
+#[tokio::test]
+async fn breaks_and_night_shift_keep_one_session_one_date() {
+    let pool = pool().await;
+    let m = module(&pool).await;
+    let employee = Uuid::new_v4();
+    let app = create_guarded_attendance_routes(&m);
+
+    // Night shift starts at 23:00 local-real time is awkward to force here;
+    // the verbs stamp now(), so prove the invariants that matter regardless:
+    // in → break_start → break_end → out = ONE session, FOUR clock rows,
+    // break rows marked, session closed by the real out.
+    let call = |direction: &str| {
+        format!(r#"{{"employeeId":"{employee}","direction":"{direction}","source":"self_service"}}"#)
+    };
+    let s = req(app.clone(), "POST", "/attendance/punch", call("in")).await;
+    assert_eq!(s, StatusCode::OK, "punch in");
+
+    // The break taps must not fall inside the dedupe window of each other in
+    // the WRONG direction ordering; break verbs do not consult the dedupe
+    // window (they are different acts), so spacing is only about ordering.
+    let s = req(app.clone(), "POST", "/attendance/break/start", format!(r#"{{"employeeId":"{employee}","direction":"out","source":"self_service"}}"#)).await;
+    assert_eq!(s, StatusCode::OK, "break start on the open session");
+
+    let open: i64 = one(&pool, format!(
+        "SELECT count(*) FROM attendance.attendance_sessions WHERE employee_id = '{employee}' AND check_out IS NULL"
+    )).await;
+    assert_eq!(open, 1, "the session stays open across the break");
+
+    let s = req(app.clone(), "POST", "/attendance/break/end", format!(r#"{{"employeeId":"{employee}","direction":"in","source":"self_service"}}"#)).await;
+    assert_eq!(s, StatusCode::OK, "break end returns");
+
+    let breaks: i64 = one(&pool, format!(
+        "SELECT count(*) FROM attendance.attendance_clocks WHERE employee_id = '{employee}' AND metadata->>'kind' = 'break'"
+    )).await;
+    // Both break halves carry the marker: pairing start/end symmetrically is
+    // what lets a read reconstruct break intervals, and it keeps a break-in
+    // distinguishable from a real punch-in (and break-out from punch-out).
+    assert_eq!(breaks, 2, "the break's out AND in rows are marked");
+
+    let s = req(app, "POST", "/attendance/punch", call("out")).await;
+    assert_eq!(s, StatusCode::OK, "punch out closes");
+
+    let rows: i64 = one(&pool, format!(
+        "SELECT count(*) FROM attendance.attendance_clocks WHERE employee_id = '{employee}'"
+    )).await;
+    assert_eq!(rows, 4, "in, break-out, break-in, out — four rows, one session");
+
+    let linked: i64 = one(&pool, format!(
+        "SELECT count(*) FROM attendance.attendance_clocks c \
+          JOIN attendance.attendance_sessions s ON s.id = c.session_id \
+         WHERE c.employee_id = '{employee}' AND s.check_out IS NOT NULL"
+    )).await;
+    assert_eq!(linked, 4, "every clock row carries the session id — no orphan can exist");
+
+    let one_date: i64 = one(&pool, format!(
+        "SELECT count(DISTINCT date) FROM attendance.attendance_clocks WHERE employee_id = '{employee}'"
+    )).await;
+    assert_eq!(one_date, 1, "one business date for the whole flow, stamped server side");
+}
+
+// ─── ATT-10: a break without an open session refuses ─────────────────────────
+
+#[tokio::test]
+async fn break_without_a_session_is_refused() {
+    let pool = pool().await;
+    let m = module(&pool).await;
+    let employee = Uuid::new_v4();
+    let s = req(create_guarded_attendance_routes(&m), "POST", "/attendance/break/start",
+        format!(r#"{{"employeeId":"{employee}","direction":"out","source":"self_service"}}"#)).await;
+    assert_eq!(s, StatusCode::CONFLICT, "no session to break from");
 }

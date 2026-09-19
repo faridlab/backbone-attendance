@@ -43,6 +43,15 @@ pub struct SessionRow {
     pub check_out: Option<DateTime<Utc>>,
 }
 
+/// The employee's newest clock event, as the dedupe window reads it.
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub struct LastClockEvent {
+    pub session_id: Uuid,
+    pub date: NaiveDate,
+    pub punched_at: DateTime<Utc>,
+    pub direction: String,
+}
+
 pub struct AttendanceWriteRepository;
 
 impl AttendanceWriteRepository {
@@ -285,6 +294,45 @@ impl AttendanceWriteRepository {
         .await
     }
 
+    /// The employee's most recent clock event, for the punch dedupe window.
+    pub async fn last_clock_event(
+        &self,
+        conn: &mut PgConnection,
+        employee_id: Uuid,
+    ) -> Result<Option<LastClockEvent>, sqlx::Error> {
+        sqlx::query_as::<_, LastClockEvent>(
+            r#"SELECT session_id, date, punched_at, direction::text AS direction
+                 FROM attendance.attendance_clocks
+                WHERE employee_id = $1
+                ORDER BY punched_at DESC
+                LIMIT 1"#,
+        )
+        .bind(employee_id)
+        .fetch_optional(conn)
+        .await
+    }
+
+    /// Mark the newest clock row as a break half (metadata kind=break). Called
+    /// inside the same transaction as the insert it decorates, so a crash
+    /// between the two leaves neither.
+    pub async fn mark_break(
+        &self,
+        conn: &mut PgConnection,
+        employee_id: Uuid,
+        punched_at: DateTime<Utc>,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            r#"UPDATE attendance.attendance_clocks
+                  SET metadata = metadata || '{"kind":"break"}'::jsonb
+                WHERE employee_id = $1 AND punched_at = $2"#,
+        )
+        .bind(employee_id)
+        .bind(punched_at)
+        .execute(conn)
+        .await?;
+        Ok(())
+    }
+
     /// Insert a session row. The `attendance_sessions_no_overlap` EXCLUDE constraint
     /// (btree_gist, tstzrange to +infinity while open) is the real arbiter — a concurrent
     /// punch-in from a second kiosk lands here as 23P01 and maps to `SessionOverlap` upstream.
@@ -390,15 +438,27 @@ impl AttendanceWriteRepository {
         punched_at: DateTime<Utc>,
         direction: &str,
         now: DateTime<Utc>,
+        is_break: bool,
     ) -> Result<Uuid, sqlx::Error> {
-        sqlx::query_scalar::<_, Uuid>(
+        // The events table is immutable-append: the break marker rides the
+        // INSERT itself, because no UPDATE path may touch a written event.
+        let sql = if is_break {
+            r#"INSERT INTO attendance.attendance_clocks
+                   (id, session_id, employee_id, date, punched_at, direction, metadata)
+               VALUES (gen_random_uuid(), $1, $2, $3, $4, $5::punch_direction,
+                       jsonb_build_object('created_at', to_jsonb($6::timestamptz),
+                                          'updated_at', to_jsonb($6::timestamptz),
+                                          'kind', 'break'))
+               RETURNING id"#
+        } else {
             r#"INSERT INTO attendance.attendance_clocks
                    (id, session_id, employee_id, date, punched_at, direction, metadata)
                VALUES (gen_random_uuid(), $1, $2, $3, $4, $5::punch_direction,
                        jsonb_build_object('created_at', to_jsonb($6::timestamptz),
                                           'updated_at', to_jsonb($6::timestamptz)))
-               RETURNING id"#,
-        )
+               RETURNING id"#
+        };
+        sqlx::query_scalar::<_, Uuid>(sql)
         .bind(session_id)
         .bind(employee_id)
         .bind(date)

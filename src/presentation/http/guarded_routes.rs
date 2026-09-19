@@ -191,6 +191,42 @@ async fn punch(
     }
 }
 
+async fn break_start(
+    State(svc): State<Arc<AttendanceWriteService>>,
+    _org: OrgContext,
+    Json(b): Json<PunchBody>,
+) -> axum::response::Response {
+    let source = match b.source.as_deref() {
+        None => PunchSource::SelfService,
+        Some("kiosk") => PunchSource::Kiosk,
+        Some("self_service") => PunchSource::SelfService,
+        Some("admin") => PunchSource::Admin,
+        Some(_) => return err_response(AttendanceWriteError::BadDirection),
+    };
+    match svc.break_start(b.employee_id, source, b.at).await {
+        Ok(outcome) => punch_response(outcome),
+        Err(e) => err_response(e),
+    }
+}
+
+async fn break_end(
+    State(svc): State<Arc<AttendanceWriteService>>,
+    _org: OrgContext,
+    Json(b): Json<PunchBody>,
+) -> axum::response::Response {
+    let source = match b.source.as_deref() {
+        None => PunchSource::SelfService,
+        Some("kiosk") => PunchSource::Kiosk,
+        Some("self_service") => PunchSource::SelfService,
+        Some("admin") => PunchSource::Admin,
+        Some(_) => return err_response(AttendanceWriteError::BadDirection),
+    };
+    match svc.break_end(b.employee_id, source, b.at).await {
+        Ok(outcome) => punch_response(outcome),
+        Err(e) => err_response(e),
+    }
+}
+
 async fn correct_session(
     State(svc): State<Arc<AttendanceWriteService>>,
     _org: OrgContext,
@@ -261,6 +297,8 @@ pub fn create_guarded_attendance_routes(m: &AttendanceModule) -> Router {
     let writes = Router::new()
         .route("/attendance/kiosk/punch", post(kiosk_punch))
         .route("/attendance/punch", post(punch))
+        .route("/attendance/break/start", post(break_start))
+        .route("/attendance/break/end", post(break_end))
         .route("/attendance/sessions/:session_id/correct", post(correct_session))
         .route("/attendance/kiosk/pins", post(issue_pin))
         .route("/attendance/kiosk/pins/rotate", post(rotate_pin))
