@@ -503,3 +503,92 @@ async fn break_without_a_session_is_refused() {
         format!(r#"{{"employeeId":"{employee}","direction":"out","source":"self_service"}}"#)).await;
     assert_eq!(s, StatusCode::CONFLICT, "no session to break from");
 }
+
+// ─── ATT-11: the shift/roster masters and the schedule snapshot ───────────────
+
+/// A rostered shift is what a punch measures against: seeding a shift and a
+/// roster entry, then punching in, must freeze that shift into the rollup's
+/// schedule snapshot; an unrostered employee's snapshot records the absence.
+#[tokio::test]
+async fn rostered_shift_freezes_into_the_rollup_snapshot() {
+    let pool = pool().await;
+    let m = module(&pool).await;
+    let employee = Uuid::new_v4();
+    let today = chrono::Utc::now().date_naive();
+
+    // Seed a shift through the generated CRUD (the guarded surface the
+    // console uses), then a roster entry naming it for today.
+    let shift_id = Uuid::new_v4();
+    sqlx::query(
+        r#"INSERT INTO attendance.shifts (id, name, code, start_time, end_time, break_minutes)
+           VALUES ($1, 'Night', 'NIGHT', '22:00', '06:00', 45)"#,
+    )
+    .bind(shift_id)
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query(
+        r#"INSERT INTO attendance.roster_entries (employee_id, date, shift_id)
+           VALUES ($1, $2, $3)"#,
+    )
+    .bind(employee)
+    .bind(today)
+    .bind(shift_id)
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    // Punch in: the snapshot is resolved at write time from the roster.
+    let s = req(create_guarded_attendance_routes(&m), "POST", "/attendance/punch",
+        format!(r#"{{"employeeId":"{employee}","direction":"in","source":"self_service"}}"#)).await;
+    assert_eq!(s, StatusCode::OK, "punch in with a roster");
+
+    let snap: serde_json::Value = sqlx::query_scalar(
+        "SELECT schedule FROM attendance.attendances WHERE employee_id = $1 AND date = $2",
+    )
+    .bind(employee)
+    .bind(today)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(snap["schedule_type"], "schedule", "{snap}");
+    assert_eq!(snap["shift"], "NIGHT", "{snap}");
+    assert_eq!(snap["break_minutes"], 45, "{snap}");
+
+    // The resolve read answers the same shape.
+    let app = with_caller(create_guarded_attendance_routes(&m));
+    use axum::body::Body;
+    use tower::ServiceExt;
+    let r = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri(format!("/attendance/schedule?employee_id={employee}&date={today}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(r.status(), StatusCode::OK);
+    let body: serde_json::Value =
+        serde_json::from_slice(&axum::body::to_bytes(r.into_body(), 1 << 16).await.unwrap())
+            .unwrap();
+    assert_eq!(body["shift"], "NIGHT", "{body}");
+
+    // An unrostered employee's snapshot records the absence, not a guess.
+    let other = Uuid::new_v4();
+    let s = req(create_guarded_attendance_routes(&m), "POST", "/attendance/punch",
+        format!(r#"{{"employeeId":"{other}","direction":"in","source":"self_service"}}"#)).await;
+    assert_eq!(s, StatusCode::OK, "punch in without a roster");
+    let snap2: Option<serde_json::Value> = sqlx::query_scalar(
+        "SELECT schedule FROM attendance.attendances WHERE employee_id = $1 AND date = $2",
+    )
+    .bind(other)
+    .bind(today)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert!(
+        !snap2.and_then(|s| s.get("shift").cloned()).is_some(),
+        "no shift is invented for an unrostered day"
+    );
+}

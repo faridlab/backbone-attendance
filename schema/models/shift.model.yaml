@@ -1,0 +1,65 @@
+# =============================================================================
+# Domain: attendance
+# Entity: Shift
+# Description: A named working-time window one or more employees follow. The
+#              thing every "late", "expected hours", "time debt" and
+#              "part-month" statement measures against — until this entity
+#              existed, they measured against a hard-coded 09:00-17:00 that
+#              no one configured.
+#
+#              A shift may cross midnight (22:00-06:00): the attendance
+#              business date stays the START's date, which the session
+#              open-path already guarantees.
+# =============================================================================
+
+models:
+  # Tenancy: none, by design (ADR-0029). A composing service's tenancy
+  # decorator owns org scoping, including the per-unit unique on code.
+  - name: Shift
+    collection: shifts
+    description: "A named working-time window (may cross midnight). The reference every lateness, expected-hours and time-debt measure computes against."
+
+    fields:
+      id:
+        type: uuid
+        attributes: ["@id", "@default(uuid)"]
+        description: "Unique record id"
+
+      name:
+        type: string
+        attributes: ["@required"]
+        description: "Human name shown on rosters ('Morning', 'Night')"
+
+      code:
+        type: string
+        attributes: ["@required"]
+        description: "Stable selector the roster and integrations key on"
+
+      start_time:
+        type: time?
+        description: "Shift start (wall-clock time; a shift may cross midnight)"
+
+      end_time:
+        type: time?
+        description: "Shift end (may be earlier than start when the shift crosses midnight)"
+
+      break_minutes:
+        type: integer?
+        description: "Paid break inside the shift, subtracted from expected hours"
+
+      is_active:
+        type: bool
+        attributes: ["@default(true)"]
+        description: "Inactive shifts stop resolving but stay readable"
+
+      metadata:
+        type: Metadata
+        attributes: ["@audit_metadata"]
+        description: "Audit metadata"
+
+    indexes:
+      # Tenancy (ADR-0029): the module is tenant-agnostic — no tenant key
+      # here; the composing service's decorator owns the fence and the
+      # per-unit code unique.
+      - fields: [code]
+        unique: false

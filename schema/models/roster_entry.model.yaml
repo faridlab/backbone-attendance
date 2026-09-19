@@ -1,0 +1,49 @@
+# =============================================================================
+# Domain: attendance
+# Entity: RosterEntry
+# Description: WHO works WHICH shift on WHICH date — the roster grain. An
+#              entry with no shift is a rostered day off; no entry at all
+#              means the date is unscheduled (the punch verbs still work, the
+#              snapshot records the absence of a schedule).
+# =============================================================================
+
+models:
+  # Tenancy: none, by design (ADR-0029). The composing service's tenancy
+  # decorator owns org scoping, including one entry per (unit, employee,
+  # date).
+  - name: RosterEntry
+    collection: roster_entries
+    description: "One employee's rostered shift for one date (no shift = rostered day off)."
+
+    fields:
+      id:
+        type: uuid
+        attributes: ["@id", "@default(uuid)"]
+        description: "Unique record id"
+
+      employee_id:
+        type: uuid
+        attributes: ["@required", "@exclude_from_foreign_key_check"]
+        description: "The rostered employee — logical FK employee.Employee.id"
+
+      date:
+        type: date
+        attributes: ["@required"]
+        description: "The rostered date"
+
+      shift_id:
+        type: uuid?
+        attributes: ["@exclude_from_foreign_key_check"]
+        description: "The shift to work — logical FK attendance.Shift.id; NULL = rostered day off"
+
+      metadata:
+        type: Metadata
+        attributes: ["@audit_metadata"]
+        description: "Audit metadata"
+
+    indexes:
+      # Tenancy (ADR-0029): the module is tenant-agnostic — no tenant key
+      # here; the composing service's decorator owns the fence and the
+      # one-entry-per-day unique.
+      - fields: [employee_id, date]
+        unique: false

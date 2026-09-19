@@ -31,7 +31,7 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::{delete, post},
+    routing::{delete, get, post},
     Json, Router,
 };
 use backbone_auth::org::OrgContext;
@@ -191,6 +191,31 @@ async fn punch(
     }
 }
 
+/// `GET /attendance/schedule?employee_id=&date=` — the roster resolution
+/// for one employee-day: the shift that applies (or none), in the same
+/// snapshot shape the rollup carries.
+async fn resolve_schedule(
+    State(svc): State<Arc<AttendanceWriteService>>,
+    _org: OrgContext,
+    axum::extract::Query(q): axum::extract::Query<ScheduleQuery>,
+) -> axum::response::Response {
+    match svc.resolve_schedule(q.employee_id, q.date).await {
+        Ok(Some(snapshot)) => (StatusCode::OK, Json(snapshot)).into_response(),
+        Ok(None) => (
+            StatusCode::OK,
+            Json(serde_json::json!({"schedule_type": "none"})),
+        )
+            .into_response(),
+        Err(e) => err_response(e),
+    }
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct ScheduleQuery {
+    employee_id: uuid::Uuid,
+    date: chrono::NaiveDate,
+}
+
 async fn break_start(
     State(svc): State<Arc<AttendanceWriteService>>,
     _org: OrgContext,
@@ -299,12 +324,23 @@ pub fn create_guarded_attendance_routes(m: &AttendanceModule) -> Router {
         .route("/attendance/punch", post(punch))
         .route("/attendance/break/start", post(break_start))
         .route("/attendance/break/end", post(break_end))
+        .route("/attendance/schedule", get(resolve_schedule))
         .route("/attendance/sessions/:session_id/correct", post(correct_session))
         .route("/attendance/kiosk/pins", post(issue_pin))
         .route("/attendance/kiosk/pins/rotate", post(rotate_pin))
         .route("/attendance/kiosk/pins/unlock", post(unlock_pin))
         .route("/attendance/kiosk/pins/:employee_id", delete(revoke_pin))
-        .with_state(m.attendance_write_service.clone());
+        .with_state(m.attendance_write_service.clone())
+        // The shift/roster masters: generated CRUD carrying their own state,
+        // merged after the write lane so the state types do not mix. The
+        // schedule resolve read sits beside them (it shares the write
+        // service's state, so it rides the lane above).
+        .merge(super::shift_handler::create_shift_routes(
+            m.shift_service.clone(),
+        ))
+        .merge(super::roster_entry_handler::create_roster_entry_routes(
+            m.roster_entry_service.clone(),
+        ));
 
     // Reads: daily rollups, immutable clock events, sessions — kiosk_pin reads are deliberately
     // absent (hashes/counters never leave the module through a generic GET).

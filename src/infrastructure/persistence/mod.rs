@@ -8,6 +8,8 @@ mod attendance_repository;
 mod attendance_clock_repository;
 mod attendance_session_repository;
 mod kiosk_pin_repository;
+mod roster_entry_repository;
+mod shift_repository;
 
 // Custom persistence modules
 // <<< CUSTOM
@@ -20,6 +22,8 @@ pub use attendance_repository::AttendanceRepository;
 pub use attendance_clock_repository::AttendanceClockRepository;
 pub use attendance_session_repository::AttendanceSessionRepository;
 pub use kiosk_pin_repository::KioskPinRepository;
+pub use roster_entry_repository::RosterEntryRepository;
+pub use shift_repository::ShiftRepository;
 
 // Re-export backbone-orm types
 pub use backbone_orm::repository::{

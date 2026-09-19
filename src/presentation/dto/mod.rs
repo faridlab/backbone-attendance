@@ -9,6 +9,8 @@ pub mod attendance_dto;
 pub mod attendance_clock_dto;
 pub mod attendance_session_dto;
 pub mod kiosk_pin_dto;
+pub mod roster_entry_dto;
+pub mod shift_dto;
 
 // Re-exports
 pub use attendance_dto::{
@@ -34,6 +36,14 @@ pub use attendance_session_dto::{
     AttendanceSessionResponseDto,
     AttendanceSessionListResponseDto,
     AttendanceSessionSummaryDto,
+};
+pub use roster_entry_dto::{
+    CreateRosterEntryDto, UpdateRosterEntryDto, PatchRosterEntryDto,
+    RosterEntryResponseDto, RosterEntryListResponseDto, RosterEntrySummaryDto,
+};
+pub use shift_dto::{
+    CreateShiftDto, UpdateShiftDto, PatchShiftDto,
+    ShiftResponseDto, ShiftListResponseDto, ShiftSummaryDto,
 };
 pub use kiosk_pin_dto::{
     CreateKioskPinDto,

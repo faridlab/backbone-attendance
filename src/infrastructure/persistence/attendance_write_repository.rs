@@ -483,16 +483,18 @@ impl AttendanceWriteRepository {
         clockin: Option<NaiveTime>,
         clockout: Option<NaiveTime>,
         now: DateTime<Utc>,
+        schedule: Option<serde_json::Value>,
     ) -> Result<(), sqlx::Error> {
         sqlx::query(
             r#"INSERT INTO attendance.attendances
-                   (id, employee_id, date, clockin, clockout, metadata)
-               VALUES (gen_random_uuid(), $1, $2, $3, $4,
+                   (id, employee_id, date, clockin, clockout, schedule, metadata)
+               VALUES (gen_random_uuid(), $1, $2, $3, $4, $6,
                        jsonb_build_object('created_at', to_jsonb($5::timestamptz),
                                           'updated_at', to_jsonb($5::timestamptz)))
                ON CONFLICT (employee_id, date) WHERE (metadata->>'deleted_at') IS NULL
                DO UPDATE SET clockin  = COALESCE(attendances.clockin,  EXCLUDED.clockin),
                              clockout = COALESCE(EXCLUDED.clockout, attendances.clockout),
+                             schedule = COALESCE(EXCLUDED.schedule, $6),
                              metadata = attendances.metadata || jsonb_build_object(
                                  'updated_at', to_jsonb($5::timestamptz))"#,
         )
@@ -501,9 +503,44 @@ impl AttendanceWriteRepository {
         .bind(clockin)
         .bind(clockout)
         .bind(now)
+        .bind(schedule)
         .execute(conn)
         .await?;
         Ok(())
+    }
+
+    /// Resolve the schedule that applies to (employee, date): the roster
+    /// entry's shift, or no schedule when nothing is rostered. The snapshot
+    /// shape matches the documented contract
+    /// { schedule_type, shift, start_time, end_time, break_minutes }.
+    pub async fn resolve_schedule_snapshot(
+        &self,
+        conn: &mut PgConnection,
+        employee_id: Uuid,
+        date: NaiveDate,
+    ) -> Result<Option<serde_json::Value>, sqlx::Error> {
+        let row: Option<(Option<String>, Option<NaiveTime>, Option<NaiveTime>, Option<i32>)> =
+            sqlx::query_as(
+                r#"SELECT s.code, s.start_time, s.end_time, s.break_minutes
+                     FROM attendance.roster_entries r
+                     JOIN attendance.shifts s ON s.id = r.shift_id AND s.is_active
+                    WHERE r.employee_id = $1 AND r.date = $2
+                      AND (r.metadata->>'deleted_at') IS NULL
+                    LIMIT 1"#,
+            )
+            .bind(employee_id)
+            .bind(date)
+            .fetch_optional(conn)
+            .await?;
+        Ok(row.map(|(code, start, end, brk)| {
+            serde_json::json!({
+                "schedule_type": "schedule",
+                "shift": code,
+                "start_time": start.map(|t| t.format("%H:%M").to_string()),
+                "end_time": end.map(|t| t.format("%H:%M").to_string()),
+                "break_minutes": brk.unwrap_or(0),
+            })
+        }))
     }
 
     /// Recompute the rollup for a business date from its live sessions (post-correction truth):
@@ -545,6 +582,6 @@ impl AttendanceWriteRepository {
             return Ok(());
         }
 
-        self.upsert_rollup_times(conn, employee_id, date, clockin, clockout, now).await
+        self.upsert_rollup_times(conn, employee_id, date, clockin, clockout, now, None).await
     }
 }

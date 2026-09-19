@@ -11,6 +11,8 @@ pub mod attendance_service;
 pub mod attendance_clock_service;
 pub mod attendance_session_service;
 pub mod kiosk_pin_service;
+pub mod roster_entry_service;
+pub mod shift_service;
 
 // <<< CUSTOM
 // Hand-written `AttendanceQueryService` impl (user-owned file). Standard lookups delegate to the
@@ -24,6 +26,8 @@ pub use attendance_service::AttendanceService;
 pub use attendance_clock_service::AttendanceClockService;
 pub use attendance_session_service::AttendanceSessionService;
 pub use kiosk_pin_service::KioskPinService;
+pub use roster_entry_service::RosterEntryService;
+pub use shift_service::ShiftService;
 // <<< CUSTOM
 pub use attendance_write_service::{
     lockout_until, pin_is_wellformed, validate_punch_time, AttendanceWriteError,

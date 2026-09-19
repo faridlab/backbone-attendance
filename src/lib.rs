@@ -34,6 +34,8 @@ pub use infrastructure::persistence::*;
 // Re-exports - Application services
 pub use application::service::AttendanceService;
 pub use application::service::AttendanceClockService;
+pub use application::service::RosterEntryService;
+pub use application::service::ShiftService;
 pub use application::service::AttendanceSessionService;
 pub use application::service::KioskPinService;
 
@@ -69,6 +71,8 @@ pub struct AttendanceModule {
     pub(crate) attendance_clock_service: Arc<AttendanceClockService>,
     pub(crate) attendance_session_service: Arc<AttendanceSessionService>,
     pub(crate) kiosk_pin_service: Arc<KioskPinService>,
+    pub(crate) shift_service: Arc<ShiftService>,
+    pub(crate) roster_entry_service: Arc<RosterEntryService>,
     // <<< CUSTOM FIELDS
     // Held so the `AttendanceQueryService` impl can delegate `present_days` to the repo's
     // hand-written SQL, and standard lookups to the CRUD services above. `db_pool` is the same pool
@@ -187,11 +191,20 @@ impl AttendanceModuleBuilder {
         let kiosk_pin_repository = Arc::new(KioskPinRepository::new(db_pool.clone()));
         let kiosk_pin_service = Arc::new(KioskPinService::with_repository(kiosk_pin_repository.clone()));
 
+        // Shift + RosterEntry services (the working-time masters)
+        let shift_repository = Arc::new(ShiftRepository::new(db_pool.clone()));
+        let shift_service = Arc::new(ShiftService::with_repository(shift_repository.clone()));
+        let roster_entry_repository = Arc::new(RosterEntryRepository::new(db_pool.clone()));
+        let roster_entry_service =
+            Arc::new(RosterEntryService::with_repository(roster_entry_repository.clone()));
+
         // <<< CUSTOM
         let attendance_write_service = Arc::new(AttendanceWriteService::new(db_pool.clone()));
         // END CUSTOM
 
         Ok(AttendanceModule {
+            shift_service,
+            roster_entry_service,
             attendance_service,
             attendance_clock_service,
             attendance_session_service,

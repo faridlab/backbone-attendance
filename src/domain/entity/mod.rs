@@ -8,6 +8,8 @@ pub mod attendance_session;
 pub mod kiosk_pin;
 pub mod punch_direction;
 pub mod punch_source;
+pub mod roster_entry;
+pub mod shift;
 
 // Re-exports
 pub use attendance::Attendance;
@@ -24,6 +26,8 @@ pub use kiosk_pin::KioskPinBuilder;
 pub use kiosk_pin::KioskPinId;
 pub use punch_direction::PunchDirection;
 pub use punch_source::PunchSource;
+pub use roster_entry::RosterEntry;
+pub use shift::Shift;
 
 // ==========================================================================
 // Entity Trait

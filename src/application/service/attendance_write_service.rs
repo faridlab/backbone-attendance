@@ -358,6 +358,23 @@ impl AttendanceWriteService {
         Ok(outcome)
     }
 
+    /// The roster resolution for one employee-day, in the same snapshot
+    /// shape the rollup carries: what this person was supposed to work.
+    pub async fn resolve_schedule(
+        &self,
+        employee_id: Uuid,
+        date: NaiveDate,
+    ) -> Result<Option<serde_json::Value>, AttendanceWriteError> {
+        let mut tx = self.pool.begin().await?;
+        if let Some(scope) = org_scope::current_org_scope() {
+            org_scope::bind_org_scope_on(&mut tx, &scope).await?;
+        }
+        self.repo
+            .resolve_schedule_snapshot(&mut tx, employee_id, date)
+            .await
+            .map_err(AttendanceWriteError::Db)
+    }
+
     // ─── breaks: leave and return mid-session ────────────────────────────────
 
     /// Start a break: an Out-shaped punch on the OPEN session that does not
@@ -607,6 +624,14 @@ impl AttendanceWriteService {
         // stays on one session row and one rollup day.
         let business_date = check_in.date_naive();
 
+        // The schedule snapshot is resolved at write time from the roster:
+        // the shift this punch measures against, frozen on the rollup row so
+        // a later roster edit never rewrites history.
+        let schedule = self
+            .repo
+            .resolve_schedule_snapshot(&mut *conn, employee_id, business_date)
+            .await?;
+
         let session = self
             .repo
             .insert_session(&mut *conn, employee_id, business_date, check_in, &source.to_string(), correction_reason, now)
@@ -616,7 +641,7 @@ impl AttendanceWriteService {
             .insert_clock_event(&mut *conn, session.id, employee_id, business_date, check_in, "in", now, false)
             .await?;
         self.repo
-            .upsert_rollup_times(&mut *conn, employee_id, business_date, Some(check_in.time()), None, now)
+            .upsert_rollup_times(&mut *conn, employee_id, business_date, Some(check_in.time()), None, now, schedule)
             .await?;
 
         Ok(SessionRow::into_outcome(session, PunchDirection::In))
@@ -645,7 +670,7 @@ impl AttendanceWriteService {
             .insert_clock_event(&mut *conn, closed.id, closed.employee_id, closed.date, check_out, "out", now, false)
             .await?;
         self.repo
-            .upsert_rollup_times(&mut *conn, closed.employee_id, closed.date, None, Some(check_out.time()), now)
+            .upsert_rollup_times(&mut *conn, closed.employee_id, closed.date, None, Some(check_out.time()), now, None)
             .await?;
 
         Ok(SessionRow::into_outcome(closed, PunchDirection::Out))

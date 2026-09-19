@@ -9,6 +9,8 @@ pub mod attendance_handler;
 pub mod attendance_clock_handler;
 pub mod attendance_session_handler;
 pub mod kiosk_pin_handler;
+pub mod roster_entry_handler;
+pub mod shift_handler;
 
 // <<< CUSTOM
 // Guarded composition (user-owned file): validated writes + safe reads, no generic mutation,
