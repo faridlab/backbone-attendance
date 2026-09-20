@@ -186,11 +186,11 @@ impl OvertimeLifecycleService {
         }
         let sql = if stamp_decided {
             r#"UPDATE attendance.overtime_requests
-                  SET status = $2::attendance.overtime_request_status, decided_at = now()
+                  SET status = $2::overtime_request_status, decided_at = now()
                 WHERE id = $1"#
         } else {
             r#"UPDATE attendance.overtime_requests
-                  SET status = $2::attendance.overtime_request_status
+                  SET status = $2::overtime_request_status
                 WHERE id = $1"#
         };
         sqlx::query(sql)
