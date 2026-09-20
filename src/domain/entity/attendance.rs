@@ -260,6 +260,12 @@ impl backbone_orm::EntityRepoMeta for Attendance {
     fn search_fields() -> &'static [&'static str] {
         &[]
     }
+    /// Cross-module to-one relation: the employee the day belongs to. The
+    /// schema-qualified name passes the qualifier through untouched; hydration
+    /// rides the scoped fetch so the org fence applies to the related row.
+    fn relations() -> &'static [(&'static str, &'static str, &'static str)] {
+        &[("employee", "employee.employees", "employeeId")]
+    }
 }
 
 /// Builder for Attendance entity
