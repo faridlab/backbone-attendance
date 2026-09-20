@@ -242,6 +242,10 @@ impl backbone_orm::EntityRepoMeta for OvertimeRequest {
         m.insert("employee_id".to_string(), "uuid".to_string());
         m.insert("approval_request_id".to_string(), "uuid".to_string());
         m.insert("status".to_string(), "overtime_request_status".to_string());
+        // Temporal cast hints: without them a filter like date[eq]=YYYY-MM-DD
+        // binds text and Postgres has no implicit temporal-vs-text operator.
+        m.insert("date".to_string(), "date".to_string());
+        m.insert("decided_at".to_string(), "timestamptz".to_string());
         m
     }
     fn search_fields() -> &'static [&'static str] {
