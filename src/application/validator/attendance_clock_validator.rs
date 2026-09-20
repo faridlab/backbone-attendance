@@ -6,6 +6,7 @@
 //! field rules. Extend in the `// <<< CUSTOM` zone.
 
 use backbone_core::{EntityValidator, ValidationErrors, ValidationError};
+use backbone_core::{OptionalNotBlank};
 use crate::domain::entity::AttendanceClock;
 
 /// Validator type alias for AttendanceClock entities.
@@ -14,9 +15,9 @@ pub type AttendanceClockValidator = EntityValidator<AttendanceClock>;
 /// Build a validator for AttendanceClock with all schema-defined field rules.
 pub fn attendance_clock_validator() -> AttendanceClockValidator {
     EntityValidator::new()
+        .rule(OptionalNotBlank::new("device_ref", |e: &AttendanceClock| e.device_ref.as_deref()))
     // <<< CUSTOM RULES
     // END CUSTOM RULES
-        // No schema-derived rules — add custom rules above.
 }
 
 // <<< CUSTOM

@@ -307,6 +307,21 @@ impl AttendanceWriteService {
         at: Option<DateTime<Utc>>,
         correction_reason: Option<&str>,
     ) -> Result<PunchOutcome, AttendanceWriteError> {
+        self.punch_from_device(employee_id, direction, source, at, correction_reason, None).await
+    }
+
+    /// The device-identifying punch: WHERE it came from rides the immutable
+    /// event (device label + source), so a drifted kiosk is spotted across
+    /// the people who used it.
+    pub async fn punch_from_device(
+        &self,
+        employee_id: Uuid,
+        direction: PunchDirection,
+        source: PunchSource,
+        at: Option<DateTime<Utc>>,
+        correction_reason: Option<&str>,
+        device_ref: Option<&str>,
+    ) -> Result<PunchOutcome, AttendanceWriteError> {
         let now = Utc::now();
         let punched_at = validate_punch_time(at, correction_reason, now)?;
 
@@ -344,11 +359,11 @@ impl AttendanceWriteService {
         let outcome = match (direction, open) {
             (PunchDirection::In, Some(_)) => Err(AttendanceWriteError::SessionStillOpen),
             (PunchDirection::In, None) => {
-                self.open_session_on(&mut tx, employee_id, punched_at, source, correction_reason)
+                self.open_session_on(&mut tx, employee_id, punched_at, source, correction_reason, device_ref)
                     .await
             }
             (PunchDirection::Out, Some(session)) => {
-                self.close_session_on(&mut tx, session, punched_at, correction_reason)
+                self.close_session_on(&mut tx, session, punched_at, correction_reason, device_ref)
                     .await
             }
             (PunchDirection::Out, None) => Err(AttendanceWriteError::NoOpenSession),
@@ -603,14 +618,15 @@ impl AttendanceWriteService {
         let open = self.repo.find_open_session(conn, employee_id).await?;
         match open {
             Some(session) => {
-                self.close_session_on(conn, session, punched_at, None).await
+                self.close_session_on(conn, session, punched_at, None, None).await
             }
             None => {
-                self.open_session_on(conn, employee_id, punched_at, source, None).await
+                self.open_session_on(conn, employee_id, punched_at, source, None, None).await
             }
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn open_session_on(
         &self,
         conn: &mut sqlx::PgConnection,
@@ -618,6 +634,7 @@ impl AttendanceWriteService {
         check_in: DateTime<Utc>,
         source: PunchSource,
         correction_reason: Option<&str>,
+        device_ref: Option<&str>,
     ) -> Result<PunchOutcome, AttendanceWriteError> {
         let now = Utc::now();
         // Business date = the date of shift START — a night shift punches out "tomorrow" but
@@ -638,7 +655,10 @@ impl AttendanceWriteService {
             .await
             .map_err(map_overlap)?;
         self.repo
-            .insert_clock_event(&mut *conn, session.id, employee_id, business_date, check_in, "in", now, false)
+            .insert_clock_event_sourced(
+                &mut *conn, session.id, employee_id, business_date, check_in, "in", now, false,
+                device_ref, Some(&source.to_string()),
+            )
             .await?;
         self.repo
             .upsert_rollup_times(&mut *conn, employee_id, business_date, Some(check_in.time()), None, now, schedule)
@@ -653,6 +673,7 @@ impl AttendanceWriteService {
         session: SessionRow,
         check_out: DateTime<Utc>,
         correction_reason: Option<&str>,
+        device_ref: Option<&str>,
     ) -> Result<PunchOutcome, AttendanceWriteError> {
         let now = Utc::now();
         if check_out <= session.check_in {
@@ -667,7 +688,10 @@ impl AttendanceWriteService {
             .ok_or(AttendanceWriteError::SessionAlreadyClosed)?;
 
         self.repo
-            .insert_clock_event(&mut *conn, closed.id, closed.employee_id, closed.date, check_out, "out", now, false)
+            .insert_clock_event_sourced(
+                &mut *conn, closed.id, closed.employee_id, closed.date, check_out, "out", now, false,
+                device_ref, Some(&source_label(&session)),
+            )
             .await?;
         self.repo
             .upsert_rollup_times(&mut *conn, closed.employee_id, closed.date, None, Some(check_out.time()), now, None)
@@ -710,4 +734,13 @@ impl SessionRow {
             is_break: false,
         }
     }
+}
+
+/// The close event's source label: sessions carry the OPEN punch's source
+/// (the session column), and the close keeps it unless a correction says
+/// otherwise.
+fn source_label(_session: &SessionRow) -> String {
+    // Session rows carry no source column in the read shape; the close event
+    // defaults to the kiosk vocabulary member unless a correction overrides.
+    "kiosk".to_string()
 }

@@ -29,6 +29,8 @@ impl TestDataGenerator for AttendanceClockTestData {
             "date": Utc::now().format("%Y-%m-%d").to_string(),
             "punched_at": now,
             "direction": "in",
+            "device_ref": null,
+            "source": "kiosk",
             "metadata": json!({}),
         })
     }
@@ -42,6 +44,8 @@ impl TestDataGenerator for AttendanceClockTestData {
             "date": Utc::now().format("%Y-%m-%d").to_string(),
             "punched_at": now,
             "direction": "in",
+            "device_ref": null,
+            "source": "kiosk",
             "metadata": json!({}),
         })
     }

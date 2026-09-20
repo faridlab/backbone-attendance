@@ -2755,6 +2755,7 @@ components:
         - date
         - punched_at
         - direction
+        - source
         - metadata
       properties:
         id:
@@ -2773,6 +2774,11 @@ components:
           type: string
           format: date-time
         direction:
+          type: string
+        device_ref:
+          nullable: true
+          type: string
+        source:
           type: string
         metadata:
           type: object
@@ -2798,6 +2804,7 @@ components:
         - date
         - punched_at
         - direction
+        - source
         - metadata
       properties:
         session_id:
@@ -2813,6 +2820,11 @@ components:
           type: string
           format: date-time
         direction:
+          type: string
+        device_ref:
+          nullable: true
+          type: string
+        source:
           type: string
         metadata:
           type: object
@@ -2825,6 +2837,7 @@ components:
         - date
         - punched_at
         - direction
+        - source
         - metadata
       properties:
         session_id:
@@ -2840,6 +2853,11 @@ components:
           type: string
           format: date-time
         direction:
+          type: string
+        device_ref:
+          nullable: true
+          type: string
+        source:
           type: string
         metadata:
           type: object
@@ -2860,6 +2878,11 @@ components:
           type: string
           format: date-time
         direction:
+          type: string
+        device_ref:
+          nullable: true
+          type: string
+        source:
           type: string
         metadata:
           type: object

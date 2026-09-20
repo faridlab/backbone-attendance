@@ -112,6 +112,10 @@ struct PunchBody {
     correction_reason: Option<String>,
     #[serde(default)]
     source: Option<String>, // "kiosk" | "self_service" | "admin"; default "admin"
+    /// Which device recorded the punch (kiosk label, phone id) — rides the
+    /// immutable event so a drifted kiosk is spotted across its users.
+    #[serde(default)]
+    device_ref: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -178,12 +182,13 @@ async fn punch(
         Some(_) => return err_response(AttendanceWriteError::BadDirection),
     };
     match svc
-        .punch(
+        .punch_from_device(
             b.employee_id,
             direction,
             source,
             b.at,
             b.correction_reason.as_deref(),
+            b.device_ref.as_deref(),
         )
         .await
     {

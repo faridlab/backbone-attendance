@@ -19,6 +19,7 @@ use validator::Validate;
 use crate::domain::entity::AttendanceClock;
 use crate::domain::entity::AuditMetadata;
 use crate::domain::entity::PunchDirection;
+use crate::domain::entity::PunchSource;
 
 // =============================================================================
 // Create DTO
@@ -45,6 +46,9 @@ pub struct CreateAttendanceClockDto {
     #[serde(alias = "punched_at")]
     pub punched_at: DateTime<Utc>,
     pub direction: PunchDirection,
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "device_ref")]
+    pub device_ref: Option<String>,
+    pub source: PunchSource,
 }
 
 // =============================================================================
@@ -72,6 +76,9 @@ pub struct UpdateAttendanceClockDto {
     #[serde(alias = "punched_at")]
     pub punched_at: DateTime<Utc>,
     pub direction: PunchDirection,
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "device_ref")]
+    pub device_ref: Option<String>,
+    pub source: PunchSource,
 }
 
 // =============================================================================
@@ -101,12 +108,16 @@ pub struct PatchAttendanceClockDto {
     pub punched_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub direction: Option<PunchDirection>,
+    #[serde(skip_serializing_if = "Option::is_none", alias = "device_ref")]
+    pub device_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<PunchSource>,
 }
 
 impl PatchAttendanceClockDto {
     /// Check if any field is set
     pub fn has_changes(&self) -> bool {
-        self.session_id.is_some() || self.employee_id.is_some() || self.date.is_some() || self.punched_at.is_some() || self.direction.is_some()
+        self.session_id.is_some() || self.employee_id.is_some() || self.date.is_some() || self.punched_at.is_some() || self.direction.is_some() || self.device_ref.is_some() || self.source.is_some()
     }
 }
 
@@ -133,6 +144,8 @@ pub struct AttendanceClockResponseDto {
     #[cfg_attr(feature = "openapi", schema(example = "2024-01-01T00:00:00Z"))]
     pub punched_at: DateTime<Utc>,
     pub direction: PunchDirection,
+    pub device_ref: Option<String>,
+    pub source: PunchSource,
     pub metadata: AuditMetadata,
 }
 
@@ -209,6 +222,8 @@ impl From<AttendanceClock> for AttendanceClockResponseDto {
             date: entity.date,
             punched_at: entity.punched_at,
             direction: entity.direction,
+            device_ref: entity.device_ref,
+            source: entity.source,
             metadata: entity.metadata,
         }
     }
@@ -236,6 +251,8 @@ impl From<CreateAttendanceClockDto> for AttendanceClock {
             date: dto.date,
             punched_at: dto.punched_at,
             direction: dto.direction,
+            device_ref: dto.device_ref,
+            source: dto.source,
             metadata: AuditMetadata::default(),
         }
     }
@@ -250,6 +267,8 @@ impl From<&AttendanceClock> for AttendanceClockResponseDto {
             date: entity.date.clone(),
             punched_at: entity.punched_at.clone(),
             direction: entity.direction.clone(),
+            device_ref: entity.device_ref.clone(),
+            source: entity.source.clone(),
             metadata: entity.metadata.clone(),
         }
     }
@@ -268,6 +287,8 @@ impl backbone_core::ApplyUpdateDto<UpdateAttendanceClockDto> for AttendanceClock
         self.date = dto.date;
         self.punched_at = dto.punched_at;
         self.direction = dto.direction;
+        self.device_ref = dto.device_ref;
+        self.source = dto.source;
         Ok(self)
     }
 }

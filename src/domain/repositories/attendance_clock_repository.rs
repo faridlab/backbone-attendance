@@ -9,7 +9,7 @@ use async_trait::async_trait;
 use anyhow::Result;
 use uuid::Uuid;
 
-use crate::domain::entity::{AttendanceClock, PunchDirection};
+use crate::domain::entity::{AttendanceClock, PunchDirection, PunchSource};
 
 /// Pagination parameters for list queries
 #[derive(Debug, Clone, Default)]
@@ -47,12 +47,14 @@ pub struct AttendanceClockFilter {
     pub session_id: Option<Uuid>,
     pub employee_id: Option<Uuid>,
     pub direction: Option<PunchDirection>,
+    pub device_ref: Option<String>,
+    pub source: Option<PunchSource>,
 }
 
 impl AttendanceClockFilter {
     /// Check if any filter is set
     pub fn has_filters(&self) -> bool {
-        self.session_id.is_some() || self.employee_id.is_some() || self.direction.is_some()
+        self.session_id.is_some() || self.employee_id.is_some() || self.direction.is_some() || self.device_ref.is_some() || self.source.is_some()
     }
 }
 

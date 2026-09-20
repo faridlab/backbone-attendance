@@ -4,6 +4,7 @@ use sqlx::FromRow;
 use uuid::Uuid;
 
 use super::PunchDirection;
+use super::PunchSource;
 use super::AuditMetadata;
 
 /// Strongly-typed ID for AttendanceClock
@@ -55,6 +56,8 @@ pub struct AttendanceClock {
     pub date: NaiveDate,
     pub punched_at: DateTime<Utc>,
     pub direction: PunchDirection,
+    pub device_ref: Option<String>,
+    pub source: PunchSource,
     #[serde(default)]
     #[sqlx(json)]
     pub metadata: AuditMetadata,
@@ -67,7 +70,7 @@ impl AttendanceClock {
     }
 
     /// Create a new AttendanceClock with required fields
-    pub fn new(session_id: Uuid, employee_id: Uuid, date: NaiveDate, punched_at: DateTime<Utc>, direction: PunchDirection) -> Self {
+    pub fn new(session_id: Uuid, employee_id: Uuid, date: NaiveDate, punched_at: DateTime<Utc>, direction: PunchDirection, source: PunchSource) -> Self {
         Self {
             id: Uuid::new_v4(),
             session_id,
@@ -75,6 +78,8 @@ impl AttendanceClock {
             date,
             punched_at,
             direction,
+            device_ref: None,
+            source,
             metadata: AuditMetadata::default(),
         }
     }
@@ -131,6 +136,16 @@ impl AttendanceClock {
 
 
     // ==========================================================
+    // Fluent Setters (with_* for optional fields)
+    // ==========================================================
+
+    /// Set the device_ref field (chainable)
+    pub fn with_device_ref(mut self, value: String) -> Self {
+        self.device_ref = Some(value);
+        self
+    }
+
+    // ==========================================================
     // Partial Update
     // ==========================================================
 
@@ -152,6 +167,12 @@ impl AttendanceClock {
                 }
                 "direction" => {
                     if let Ok(v) = serde_json::from_value(value) { self.direction = v; }
+                }
+                "device_ref" => {
+                    if let Ok(v) = serde_json::from_value(value) { self.device_ref = v; }
+                }
+                "source" => {
+                    if let Ok(v) = serde_json::from_value(value) { self.source = v; }
                 }
                 _ => {} // ignore unknown fields
             }
@@ -210,6 +231,7 @@ impl backbone_orm::EntityRepoMeta for AttendanceClock {
         m.insert("session_id".to_string(), "uuid".to_string());
         m.insert("employee_id".to_string(), "uuid".to_string());
         m.insert("direction".to_string(), "punch_direction".to_string());
+        m.insert("source".to_string(), "punch_source".to_string());
         m
     }
     fn search_fields() -> &'static [&'static str] {
@@ -228,6 +250,8 @@ pub struct AttendanceClockBuilder {
     date: Option<NaiveDate>,
     punched_at: Option<DateTime<Utc>>,
     direction: Option<PunchDirection>,
+    device_ref: Option<String>,
+    source: Option<PunchSource>,
 }
 
 impl AttendanceClockBuilder {
@@ -261,6 +285,18 @@ impl AttendanceClockBuilder {
         self
     }
 
+    /// Set the device_ref field (optional)
+    pub fn device_ref(mut self, value: String) -> Self {
+        self.device_ref = Some(value);
+        self
+    }
+
+    /// Set the source field (default: `PunchSource::default()`)
+    pub fn source(mut self, value: PunchSource) -> Self {
+        self.source = Some(value);
+        self
+    }
+
     /// Build the AttendanceClock entity
     ///
     /// Returns Err if any required field without a default is missing.
@@ -277,6 +313,8 @@ impl AttendanceClockBuilder {
             date,
             punched_at,
             direction: self.direction.unwrap_or_default(),
+            device_ref: self.device_ref,
+            source: self.source.unwrap_or_default(),
             metadata: AuditMetadata::default(),
         })
     }

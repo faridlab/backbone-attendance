@@ -146,6 +146,8 @@ fn attendance_to_dto(e: Attendance) -> Result<AttendanceDto> {
 
 fn attendance_clock_to_dto(e: AttendanceClock) -> Result<AttendanceClockDto> {
     Ok(AttendanceClockDto {
+        device_ref: e.device_ref,
+        source: e.source,
         id: AttendanceClockId(e.id),
         session_id: e.session_id,
         employee_id: e.employee_id,

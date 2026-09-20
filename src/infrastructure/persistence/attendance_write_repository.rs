@@ -440,20 +440,46 @@ impl AttendanceWriteRepository {
         now: DateTime<Utc>,
         is_break: bool,
     ) -> Result<Uuid, sqlx::Error> {
+        self.insert_clock_event_sourced(
+            conn, session_id, employee_id, date, punched_at, direction, now, is_break, None, None,
+        )
+        .await
+    }
+
+    /// The device-identifying variant: every punch carries WHERE it came
+    /// from (device label + source), so a drifted kiosk is spotted across
+    /// the people who used it. Corrections rewrite the session row, never
+    /// the event stream (H-3 immutability).
+    #[allow(clippy::too_many_arguments)]
+    pub async fn insert_clock_event_sourced(
+        &self,
+        conn: &mut PgConnection,
+        session_id: Uuid,
+        employee_id: Uuid,
+        date: NaiveDate,
+        punched_at: DateTime<Utc>,
+        direction: &str,
+        now: DateTime<Utc>,
+        is_break: bool,
+        device_ref: Option<&str>,
+        source: Option<&str>,
+    ) -> Result<Uuid, sqlx::Error> {
         // The events table is immutable-append: the break marker rides the
         // INSERT itself, because no UPDATE path may touch a written event.
         let sql = if is_break {
             r#"INSERT INTO attendance.attendance_clocks
-                   (id, session_id, employee_id, date, punched_at, direction, metadata)
-               VALUES (gen_random_uuid(), $1, $2, $3, $4, $5::punch_direction,
+                   (id, session_id, employee_id, date, punched_at, direction, device_ref,
+                    source, metadata)
+               VALUES (gen_random_uuid(), $1, $2, $3, $4, $5::punch_direction, $7, $8::punch_source,
                        jsonb_build_object('created_at', to_jsonb($6::timestamptz),
                                           'updated_at', to_jsonb($6::timestamptz),
                                           'kind', 'break'))
                RETURNING id"#
         } else {
             r#"INSERT INTO attendance.attendance_clocks
-                   (id, session_id, employee_id, date, punched_at, direction, metadata)
-               VALUES (gen_random_uuid(), $1, $2, $3, $4, $5::punch_direction,
+                   (id, session_id, employee_id, date, punched_at, direction, device_ref,
+                    source, metadata)
+               VALUES (gen_random_uuid(), $1, $2, $3, $4, $5::punch_direction, $7, $8::punch_source,
                        jsonb_build_object('created_at', to_jsonb($6::timestamptz),
                                           'updated_at', to_jsonb($6::timestamptz)))
                RETURNING id"#
@@ -465,6 +491,8 @@ impl AttendanceWriteRepository {
         .bind(punched_at)
         .bind(direction)
         .bind(now)
+        .bind(device_ref)
+        .bind(source)
         .fetch_one(conn)
         .await
     }

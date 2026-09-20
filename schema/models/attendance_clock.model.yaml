@@ -46,6 +46,16 @@ models:
         attributes: ["@required", "@default(in)"]
         description: "Punch direction"
 
+      device_ref:
+        type: string?
+        attributes: ["@length(max=80)"]
+        description: "Which device recorded the punch (kiosk label, phone id) — a kiosk whose clock drifts is spotted across the people who used it"
+
+      source:
+        type: PunchSource
+        attributes: ["@required", "@default(kiosk)"]
+        description: "Where the punch came from (kiosk / self_service / correction)"
+
       metadata:
         type: Metadata
         attributes: ["@audit_metadata"]

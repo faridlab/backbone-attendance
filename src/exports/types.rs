@@ -114,6 +114,8 @@ pub struct AttendanceClockDto {
     pub date: NaiveDate,
     pub punched_at: DateTime<Utc>,
     pub direction: PunchDirection,
+    pub device_ref: Option<String>,
+    pub source: PunchSource,
     pub metadata: serde_json::Value,
 }
 
