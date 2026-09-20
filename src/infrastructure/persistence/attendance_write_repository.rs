@@ -440,8 +440,12 @@ impl AttendanceWriteRepository {
         now: DateTime<Utc>,
         is_break: bool,
     ) -> Result<Uuid, sqlx::Error> {
+        // The legacy shape carries no device/source: the events default to
+        // the kiosk vocabulary member (breaks ride the open session's
+        // origin), never NULL (the column is NOT NULL).
         self.insert_clock_event_sourced(
-            conn, session_id, employee_id, date, punched_at, direction, now, is_break, None, None,
+            conn, session_id, employee_id, date, punched_at, direction, now, is_break,
+            None, Some("kiosk"),
         )
         .await
     }
