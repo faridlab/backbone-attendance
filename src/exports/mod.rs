@@ -39,6 +39,15 @@ pub use events::*;
 /// - `KioskPinDto` - Data transfer object for KioskPin
 /// - `KioskPinSummary` - Summary view of KioskPin
 /// - `KioskPinId` - Type-safe ID wrapper
+/// - `OvertimeRequestDto` - Data transfer object for OvertimeRequest
+/// - `OvertimeRequestSummary` - Summary view of OvertimeRequest
+/// - `OvertimeRequestId` - Type-safe ID wrapper
+/// - `RosterEntryDto` - Data transfer object for RosterEntry
+/// - `RosterEntrySummary` - Summary view of RosterEntry
+/// - `RosterEntryId` - Type-safe ID wrapper
+/// - `ShiftDto` - Data transfer object for Shift
+/// - `ShiftSummary` - Summary view of Shift
+/// - `ShiftId` - Type-safe ID wrapper
 ///
 /// ## Public Events
 /// - `AttendanceCreatedEvent` - Published when Attendance is created
@@ -53,4 +62,13 @@ pub use events::*;
 /// - `KioskPinCreatedEvent` - Published when KioskPin is created
 /// - `KioskPinUpdatedEvent` - Published when KioskPin is updated
 /// - `KioskPinDeletedEvent` - Published when KioskPin is deleted
+/// - `OvertimeRequestCreatedEvent` - Published when OvertimeRequest is created
+/// - `OvertimeRequestUpdatedEvent` - Published when OvertimeRequest is updated
+/// - `OvertimeRequestDeletedEvent` - Published when OvertimeRequest is deleted
+/// - `RosterEntryCreatedEvent` - Published when RosterEntry is created
+/// - `RosterEntryUpdatedEvent` - Published when RosterEntry is updated
+/// - `RosterEntryDeletedEvent` - Published when RosterEntry is deleted
+/// - `ShiftCreatedEvent` - Published when Shift is created
+/// - `ShiftUpdatedEvent` - Published when Shift is updated
+/// - `ShiftDeletedEvent` - Published when Shift is deleted
 pub struct ExportSummary;

@@ -13,11 +13,17 @@ mod attendance_seeder;
 mod attendance_clock_seeder;
 mod attendance_session_seeder;
 mod kiosk_pin_seeder;
+mod overtime_request_seeder;
+mod roster_entry_seeder;
+mod shift_seeder;
 
 pub use attendance_seeder::SeedAttendanceSeeder;
 pub use attendance_clock_seeder::SeedAttendanceClockSeeder;
 pub use attendance_session_seeder::SeedAttendanceSessionSeeder;
 pub use kiosk_pin_seeder::SeedKioskPinSeeder;
+pub use overtime_request_seeder::SeedOvertimeRequestSeeder;
+pub use roster_entry_seeder::SeedRosterEntrySeeder;
+pub use shift_seeder::SeedShiftSeeder;
 
 // ============================================================================
 // SEEDER TRAIT

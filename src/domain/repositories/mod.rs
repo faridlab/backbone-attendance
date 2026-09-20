@@ -10,6 +10,9 @@ pub mod attendance_repository;
 pub mod attendance_clock_repository;
 pub mod attendance_session_repository;
 pub mod kiosk_pin_repository;
+pub mod overtime_request_repository;
+pub mod roster_entry_repository;
+pub mod shift_repository;
 
 // Re-exports
 pub use attendance_repository::{
@@ -35,4 +38,22 @@ pub use kiosk_pin_repository::{
     KioskPinPaginationParams,
     KioskPinPaginatedResult,
     KioskPinFilter,
+};
+pub use overtime_request_repository::{
+    OvertimeRequestRepository,
+    OvertimeRequestPaginationParams,
+    OvertimeRequestPaginatedResult,
+    OvertimeRequestFilter,
+};
+pub use roster_entry_repository::{
+    RosterEntryRepository,
+    RosterEntryPaginationParams,
+    RosterEntryPaginatedResult,
+    RosterEntryFilter,
+};
+pub use shift_repository::{
+    ShiftRepository,
+    ShiftPaginationParams,
+    ShiftPaginatedResult,
+    ShiftFilter,
 };

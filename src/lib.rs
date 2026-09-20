@@ -34,10 +34,11 @@ pub use infrastructure::persistence::*;
 // Re-exports - Application services
 pub use application::service::AttendanceService;
 pub use application::service::AttendanceClockService;
-pub use application::service::RosterEntryService;
-pub use application::service::ShiftService;
 pub use application::service::AttendanceSessionService;
 pub use application::service::KioskPinService;
+pub use application::service::OvertimeRequestService;
+pub use application::service::RosterEntryService;
+pub use application::service::ShiftService;
 
 // Re-exports - Workflows
 pub use application::workflows::*;
@@ -71,8 +72,9 @@ pub struct AttendanceModule {
     pub(crate) attendance_clock_service: Arc<AttendanceClockService>,
     pub(crate) attendance_session_service: Arc<AttendanceSessionService>,
     pub(crate) kiosk_pin_service: Arc<KioskPinService>,
-    pub(crate) shift_service: Arc<ShiftService>,
+    pub(crate) overtime_request_service: Arc<OvertimeRequestService>,
     pub(crate) roster_entry_service: Arc<RosterEntryService>,
+    pub(crate) shift_service: Arc<ShiftService>,
     // <<< CUSTOM FIELDS
     // Held so the `AttendanceQueryService` impl can delegate `present_days` to the repo's
     // hand-written SQL, and standard lookups to the CRUD services above. `db_pool` is the same pool
@@ -80,11 +82,13 @@ pub struct AttendanceModule {
     // scope the composing service binds, per the backbone-hr read-port convention).
     pub(crate) attendance_repository: Arc<AttendanceRepository>,
     pub(crate) db_pool: sqlx::PgPool,
-    // END CUSTOM
-    // <<< CUSTOM FIELDS
     /// Validated punch/session/kiosk-PIN writes (EXCLUDE-overlap mapping, Tier B PIN policy,
     /// immutable clock events, daily rollup upsert). The guarded routes compose off this.
-    pub attendance_write_service: Arc<AttendanceWriteService>,
+    pub(crate) attendance_write_service: Arc<AttendanceWriteService>,
+    /// The overtime pre-authorisation lifecycle (submit/confirm/refuse/cancel
+    /// over the approvals seam) — user-owned, not schema-derived.
+    pub(crate) overtime_request_lifecycle:
+        Arc<crate::application::service::overtime_request_lifecycle::OvertimeLifecycleService>,
     // END CUSTOM
 }
 
@@ -105,6 +109,9 @@ impl AttendanceModule {
             create_attendance_clock_routes,
             create_attendance_session_routes,
             create_kiosk_pin_routes,
+            create_overtime_request_routes,
+            create_roster_entry_routes,
+            create_shift_routes,
         };
 
         Router::new()
@@ -112,6 +119,9 @@ impl AttendanceModule {
             .merge(create_attendance_clock_routes(self.attendance_clock_service.clone()))
             .merge(create_attendance_session_routes(self.attendance_session_service.clone()))
             .merge(create_kiosk_pin_routes(self.kiosk_pin_service.clone()))
+            .merge(create_overtime_request_routes(self.overtime_request_service.clone()))
+            .merge(create_roster_entry_routes(self.roster_entry_service.clone()))
+            .merge(create_shift_routes(self.shift_service.clone()))
     }
 
     /// Deprecated alias for [`Self::all_crud_routes`]. `routes()` reads like
@@ -135,6 +145,9 @@ impl AttendanceModule {
             create_attendance_clock_read_routes,
             create_attendance_session_read_routes,
             create_kiosk_pin_read_routes,
+            create_overtime_request_read_routes,
+            create_roster_entry_read_routes,
+            create_shift_read_routes,
         };
 
         Router::new()
@@ -142,9 +155,19 @@ impl AttendanceModule {
             .merge(create_attendance_clock_read_routes(self.attendance_clock_service.clone()))
             .merge(create_attendance_session_read_routes(self.attendance_session_service.clone()))
             .merge(create_kiosk_pin_read_routes(self.kiosk_pin_service.clone()))
+            .merge(create_overtime_request_read_routes(self.overtime_request_service.clone()))
+            .merge(create_roster_entry_read_routes(self.roster_entry_service.clone()))
+            .merge(create_shift_read_routes(self.shift_service.clone()))
     }
 
     // <<< CUSTOM METHODS
+    /// The overtime pre-authorisation lifecycle service (for the composing
+    /// service to wire its approvals adapter onto).
+    pub fn overtime_request_lifecycle(
+        &self,
+    ) -> Arc<crate::application::service::overtime_request_lifecycle::OvertimeLifecycleService> {
+        self.overtime_request_lifecycle.clone()
+    }
     // END CUSTOM
 }
 
@@ -191,30 +214,41 @@ impl AttendanceModuleBuilder {
         let kiosk_pin_repository = Arc::new(KioskPinRepository::new(db_pool.clone()));
         let kiosk_pin_service = Arc::new(KioskPinService::with_repository(kiosk_pin_repository.clone()));
 
-        // Shift + RosterEntry services (the working-time masters)
+        // OvertimeRequest service
+        let overtime_request_repository = Arc::new(OvertimeRequestRepository::new(db_pool.clone()));
+        let overtime_request_service = Arc::new(OvertimeRequestService::with_repository(overtime_request_repository.clone()));
+
+        // RosterEntry service
+        let roster_entry_repository = Arc::new(RosterEntryRepository::new(db_pool.clone()));
+        let roster_entry_service = Arc::new(RosterEntryService::with_repository(roster_entry_repository.clone()));
+
+        // Shift service
         let shift_repository = Arc::new(ShiftRepository::new(db_pool.clone()));
         let shift_service = Arc::new(ShiftService::with_repository(shift_repository.clone()));
-        let roster_entry_repository = Arc::new(RosterEntryRepository::new(db_pool.clone()));
-        let roster_entry_service =
-            Arc::new(RosterEntryService::with_repository(roster_entry_repository.clone()));
 
         // <<< CUSTOM
         let attendance_write_service = Arc::new(AttendanceWriteService::new(db_pool.clone()));
+        // The overtime pre-authorisation lifecycle service.
+        let overtime_request_lifecycle = Arc::new(
+            crate::application::service::overtime_request_lifecycle::OvertimeLifecycleService::new(
+                db_pool.clone(),
+            ),
+        );
         // END CUSTOM
 
         Ok(AttendanceModule {
-            shift_service,
-            roster_entry_service,
             attendance_service,
             attendance_clock_service,
             attendance_session_service,
             kiosk_pin_service,
+            overtime_request_service,
+            roster_entry_service,
+            shift_service,
             // <<< CUSTOM
-            attendance_repository: attendance_repository.clone(),
+            attendance_repository,
             db_pool,
-            // END CUSTOM
-            // <<< CUSTOM
             attendance_write_service,
+            overtime_request_lifecycle,
             // END CUSTOM
         })
     }

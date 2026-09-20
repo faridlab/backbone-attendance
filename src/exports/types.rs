@@ -8,6 +8,7 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use chrono::{DateTime, Utc, NaiveDate, NaiveTime};
+use rust_decimal::Decimal;
 use crate::domain::entity::*;
 
 // ============================================================================
@@ -245,6 +246,183 @@ pub struct KioskPinSummary {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KioskPinRef {
     pub id: KioskPinId,
+}
+
+// ============================================================================
+// OVERTIMEREQUEST TYPES
+// ============================================================================
+
+/// Type-safe ID for OvertimeRequest
+///
+/// Use this instead of raw Uuid for type safety across modules.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct OvertimeRequestId(pub Uuid);
+
+impl OvertimeRequestId {
+    pub fn new(id: Uuid) -> Self {
+        Self(id)
+    }
+
+    pub fn into_inner(self) -> Uuid {
+        self.0
+    }
+}
+
+impl From<Uuid> for OvertimeRequestId {
+    fn from(id: Uuid) -> Self {
+        Self(id)
+    }
+}
+
+impl From<OvertimeRequestId> for Uuid {
+    fn from(id: OvertimeRequestId) -> Self {
+        id.0
+    }
+}
+
+/// Data transfer object for OvertimeRequest
+///
+/// This is the public representation of OvertimeRequest for other modules.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OvertimeRequestDto {
+    pub id: OvertimeRequestId,
+    pub employee_id: Uuid,
+    pub date: NaiveDate,
+    pub hours_planned: Decimal,
+    pub reason: String,
+    pub status: OvertimeRequestStatus,
+    pub approval_request_id: Option<Uuid>,
+    pub decided_at: Option<DateTime<Utc>>,
+    pub metadata: serde_json::Value,
+}
+
+/// Summary view of OvertimeRequest for list displays
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OvertimeRequestSummary {
+    pub id: OvertimeRequestId,
+    pub status: OvertimeRequestStatus,
+}
+
+/// Reference to OvertimeRequest for foreign key relationships
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OvertimeRequestRef {
+    pub id: OvertimeRequestId,
+}
+
+// ============================================================================
+// ROSTERENTRY TYPES
+// ============================================================================
+
+/// Type-safe ID for RosterEntry
+///
+/// Use this instead of raw Uuid for type safety across modules.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct RosterEntryId(pub Uuid);
+
+impl RosterEntryId {
+    pub fn new(id: Uuid) -> Self {
+        Self(id)
+    }
+
+    pub fn into_inner(self) -> Uuid {
+        self.0
+    }
+}
+
+impl From<Uuid> for RosterEntryId {
+    fn from(id: Uuid) -> Self {
+        Self(id)
+    }
+}
+
+impl From<RosterEntryId> for Uuid {
+    fn from(id: RosterEntryId) -> Self {
+        id.0
+    }
+}
+
+/// Data transfer object for RosterEntry
+///
+/// This is the public representation of RosterEntry for other modules.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RosterEntryDto {
+    pub id: RosterEntryId,
+    pub employee_id: Uuid,
+    pub date: NaiveDate,
+    pub shift_id: Option<Uuid>,
+    pub metadata: serde_json::Value,
+}
+
+/// Summary view of RosterEntry for list displays
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RosterEntrySummary {
+    pub id: RosterEntryId,
+}
+
+/// Reference to RosterEntry for foreign key relationships
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RosterEntryRef {
+    pub id: RosterEntryId,
+}
+
+// ============================================================================
+// SHIFT TYPES
+// ============================================================================
+
+/// Type-safe ID for Shift
+///
+/// Use this instead of raw Uuid for type safety across modules.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct ShiftId(pub Uuid);
+
+impl ShiftId {
+    pub fn new(id: Uuid) -> Self {
+        Self(id)
+    }
+
+    pub fn into_inner(self) -> Uuid {
+        self.0
+    }
+}
+
+impl From<Uuid> for ShiftId {
+    fn from(id: Uuid) -> Self {
+        Self(id)
+    }
+}
+
+impl From<ShiftId> for Uuid {
+    fn from(id: ShiftId) -> Self {
+        id.0
+    }
+}
+
+/// Data transfer object for Shift
+///
+/// This is the public representation of Shift for other modules.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShiftDto {
+    pub id: ShiftId,
+    pub name: String,
+    pub code: String,
+    pub start_time: Option<NaiveTime>,
+    pub end_time: Option<NaiveTime>,
+    pub break_minutes: Option<i32>,
+    pub is_active: bool,
+    pub metadata: serde_json::Value,
+}
+
+/// Summary view of Shift for list displays
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShiftSummary {
+    pub id: ShiftId,
+    pub name: String,
+}
+
+/// Reference to Shift for foreign key relationships
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShiftRef {
+    pub id: ShiftId,
 }
 
 // ============================================================================

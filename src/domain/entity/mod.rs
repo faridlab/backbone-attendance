@@ -6,10 +6,12 @@ pub mod attendance;
 pub mod attendance_clock;
 pub mod attendance_session;
 pub mod kiosk_pin;
-pub mod punch_direction;
-pub mod punch_source;
+pub mod overtime_request;
 pub mod roster_entry;
 pub mod shift;
+pub mod punch_direction;
+pub mod punch_source;
+pub mod overtime_request_status;
 
 // Re-exports
 pub use attendance::Attendance;
@@ -24,10 +26,18 @@ pub use attendance_session::AttendanceSessionId;
 pub use kiosk_pin::KioskPin;
 pub use kiosk_pin::KioskPinBuilder;
 pub use kiosk_pin::KioskPinId;
+pub use overtime_request::OvertimeRequest;
+pub use overtime_request::OvertimeRequestBuilder;
+pub use overtime_request::OvertimeRequestId;
+pub use roster_entry::RosterEntry;
+pub use roster_entry::RosterEntryBuilder;
+pub use roster_entry::RosterEntryId;
+pub use shift::Shift;
+pub use shift::ShiftBuilder;
+pub use shift::ShiftId;
 pub use punch_direction::PunchDirection;
 pub use punch_source::PunchSource;
-pub use roster_entry::RosterEntry;
-pub use shift::Shift;
+pub use overtime_request_status::OvertimeRequestStatus;
 
 // ==========================================================================
 // Entity Trait

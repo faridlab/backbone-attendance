@@ -13,3 +13,8 @@
 # Newly added seeds (preserve manual order above):
 - attendance_session_seed
 - kiosk_pin_seed
+
+# Newly added seeds (preserve manual order above):
+- overtime_request_seed
+- roster_entry_seed
+- shift_seed

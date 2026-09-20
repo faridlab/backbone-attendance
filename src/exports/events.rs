@@ -119,6 +119,87 @@ pub struct KioskPinDeletedEvent {
 }
 
 // ============================================================================
+// OVERTIMEREQUEST EVENTS
+// ============================================================================
+
+/// Event published when a OvertimeRequest is created
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OvertimeRequestCreatedEvent {
+    pub id: OvertimeRequestId,
+    pub data: OvertimeRequestDto,
+    pub occurred_at: DateTime<Utc>,
+}
+
+/// Event published when a OvertimeRequest is updated
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OvertimeRequestUpdatedEvent {
+    pub id: OvertimeRequestId,
+    pub data: OvertimeRequestDto,
+    pub occurred_at: DateTime<Utc>,
+}
+
+/// Event published when a OvertimeRequest is deleted
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OvertimeRequestDeletedEvent {
+    pub id: OvertimeRequestId,
+    pub occurred_at: DateTime<Utc>,
+}
+
+// ============================================================================
+// ROSTERENTRY EVENTS
+// ============================================================================
+
+/// Event published when a RosterEntry is created
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RosterEntryCreatedEvent {
+    pub id: RosterEntryId,
+    pub data: RosterEntryDto,
+    pub occurred_at: DateTime<Utc>,
+}
+
+/// Event published when a RosterEntry is updated
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RosterEntryUpdatedEvent {
+    pub id: RosterEntryId,
+    pub data: RosterEntryDto,
+    pub occurred_at: DateTime<Utc>,
+}
+
+/// Event published when a RosterEntry is deleted
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RosterEntryDeletedEvent {
+    pub id: RosterEntryId,
+    pub occurred_at: DateTime<Utc>,
+}
+
+// ============================================================================
+// SHIFT EVENTS
+// ============================================================================
+
+/// Event published when a Shift is created
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShiftCreatedEvent {
+    pub id: ShiftId,
+    pub data: ShiftDto,
+    pub occurred_at: DateTime<Utc>,
+}
+
+/// Event published when a Shift is updated
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShiftUpdatedEvent {
+    pub id: ShiftId,
+    pub data: ShiftDto,
+    pub occurred_at: DateTime<Utc>,
+}
+
+/// Event published when a Shift is deleted
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShiftDeletedEvent {
+    pub id: ShiftId,
+    pub occurred_at: DateTime<Utc>,
+}
+
+// ============================================================================
 // MODULE EVENT ENUM
 // ============================================================================
 
@@ -138,6 +219,15 @@ pub enum AttendanceEvent {
     KioskPinCreated(KioskPinCreatedEvent),
     KioskPinUpdated(KioskPinUpdatedEvent),
     KioskPinDeleted(KioskPinDeletedEvent),
+    OvertimeRequestCreated(OvertimeRequestCreatedEvent),
+    OvertimeRequestUpdated(OvertimeRequestUpdatedEvent),
+    OvertimeRequestDeleted(OvertimeRequestDeletedEvent),
+    RosterEntryCreated(RosterEntryCreatedEvent),
+    RosterEntryUpdated(RosterEntryUpdatedEvent),
+    RosterEntryDeleted(RosterEntryDeletedEvent),
+    ShiftCreated(ShiftCreatedEvent),
+    ShiftUpdated(ShiftUpdatedEvent),
+    ShiftDeleted(ShiftDeletedEvent),
 }
 
 /// Metadata for module events

@@ -8,6 +8,7 @@ mod attendance_repository;
 mod attendance_clock_repository;
 mod attendance_session_repository;
 mod kiosk_pin_repository;
+mod overtime_request_repository;
 mod roster_entry_repository;
 mod shift_repository;
 
@@ -22,6 +23,7 @@ pub use attendance_repository::AttendanceRepository;
 pub use attendance_clock_repository::AttendanceClockRepository;
 pub use attendance_session_repository::AttendanceSessionRepository;
 pub use kiosk_pin_repository::KioskPinRepository;
+pub use overtime_request_repository::OvertimeRequestRepository;
 pub use roster_entry_repository::RosterEntryRepository;
 pub use shift_repository::ShiftRepository;
 

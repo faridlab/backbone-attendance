@@ -10,6 +10,12 @@ pub mod attendance_session_events;
 pub mod attendance_session_event_handlers;
 pub mod kiosk_pin_events;
 pub mod kiosk_pin_event_handlers;
+pub mod overtime_request_events;
+pub mod overtime_request_event_handlers;
+pub mod roster_entry_events;
+pub mod roster_entry_event_handlers;
+pub mod shift_events;
+pub mod shift_event_handlers;
 
 pub use attendance_events::{AttendanceEvent, AttendanceEventPublisher, NoopAttendanceEventPublisher};
 pub use attendance_event_handlers::AttendanceEventHandler;
@@ -19,6 +25,12 @@ pub use attendance_session_events::{AttendanceSessionEvent, AttendanceSessionEve
 pub use attendance_session_event_handlers::AttendanceSessionEventHandler;
 pub use kiosk_pin_events::{KioskPinEvent, KioskPinEventPublisher, NoopKioskPinEventPublisher};
 pub use kiosk_pin_event_handlers::KioskPinEventHandler;
+pub use overtime_request_events::{OvertimeRequestEvent, OvertimeRequestEventPublisher, NoopOvertimeRequestEventPublisher};
+pub use overtime_request_event_handlers::OvertimeRequestEventHandler;
+pub use roster_entry_events::{RosterEntryEvent, RosterEntryEventPublisher, NoopRosterEntryEventPublisher};
+pub use roster_entry_event_handlers::RosterEntryEventHandler;
+pub use shift_events::{ShiftEvent, ShiftEventPublisher, NoopShiftEventPublisher};
+pub use shift_event_handlers::ShiftEventHandler;
 
 // <<< CUSTOM
 // END CUSTOM

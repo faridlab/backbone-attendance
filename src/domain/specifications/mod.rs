@@ -10,6 +10,9 @@ pub mod attendance_specification;
 pub mod attendance_clock_specification;
 pub mod attendance_session_specification;
 pub mod kiosk_pin_specification;
+pub mod overtime_request_specification;
+pub mod roster_entry_specification;
+pub mod shift_specification;
 
 // <<< CUSTOM
 // END CUSTOM

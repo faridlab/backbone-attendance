@@ -16,6 +16,9 @@ use backbone_attendance::seeders::SeedAttendanceSeeder;
 use backbone_attendance::seeders::SeedAttendanceClockSeeder;
 use backbone_attendance::seeders::SeedAttendanceSessionSeeder;
 use backbone_attendance::seeders::SeedKioskPinSeeder;
+use backbone_attendance::seeders::SeedOvertimeRequestSeeder;
+use backbone_attendance::seeders::SeedRosterEntrySeeder;
+use backbone_attendance::seeders::SeedShiftSeeder;
 use backbone_attendance::seeders::Seeder;
 
 #[tokio::main]
@@ -48,6 +51,9 @@ async fn main() -> Result<()> {
     seeders.push(Box::new(SeedAttendanceClockSeeder::new()));
     seeders.push(Box::new(SeedAttendanceSessionSeeder::new()));
     seeders.push(Box::new(SeedKioskPinSeeder::new()));
+    seeders.push(Box::new(SeedOvertimeRequestSeeder::new()));
+    seeders.push(Box::new(SeedRosterEntrySeeder::new()));
+    seeders.push(Box::new(SeedShiftSeeder::new()));
 
     // Sort by order
     seeders.sort_by_key(|s| s.order());

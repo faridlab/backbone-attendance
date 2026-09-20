@@ -13,6 +13,9 @@ use super::{
     attendance_clock_handler::create_attendance_clock_routes,
     attendance_session_handler::create_attendance_session_routes,
     kiosk_pin_handler::create_kiosk_pin_routes,
+    overtime_request_handler::create_overtime_request_routes,
+    roster_entry_handler::create_roster_entry_routes,
+    shift_handler::create_shift_routes,
 };
 
 use crate::application::service::{
@@ -20,6 +23,9 @@ use crate::application::service::{
     AttendanceClockService,
     AttendanceSessionService,
     KioskPinService,
+    OvertimeRequestService,
+    RosterEntryService,
+    ShiftService,
 };
 
 /// Services collection for all CRUD endpoints
@@ -28,6 +34,9 @@ pub struct HttpServices {
     pub attendance_clock: Arc<AttendanceClockService>,
     pub attendance_session: Arc<AttendanceSessionService>,
     pub kiosk_pin: Arc<KioskPinService>,
+    pub overtime_request: Arc<OvertimeRequestService>,
+    pub roster_entry: Arc<RosterEntryService>,
+    pub shift: Arc<ShiftService>,
 }
 
 /// Configure all HTTP routes for this module using Axum and BackboneCrudHandler.
@@ -55,6 +64,12 @@ pub fn configure_routes(services: HttpServices) -> Router {
         .merge(create_attendance_session_routes(services.attendance_session))
         // KioskPin routes (12 Backbone endpoints)
         .merge(create_kiosk_pin_routes(services.kiosk_pin))
+        // OvertimeRequest routes (12 Backbone endpoints)
+        .merge(create_overtime_request_routes(services.overtime_request))
+        // RosterEntry routes (12 Backbone endpoints)
+        .merge(create_roster_entry_routes(services.roster_entry))
+        // Shift routes (12 Backbone endpoints)
+        .merge(create_shift_routes(services.shift))
 }
 
 /// Create an individual entity's routes (for modular configuration)
@@ -75,6 +90,18 @@ pub mod individual {
 
     pub fn kiosk_pin_routes(service: Arc<KioskPinService>) -> Router {
         create_kiosk_pin_routes(service)
+    }
+
+    pub fn overtime_request_routes(service: Arc<OvertimeRequestService>) -> Router {
+        create_overtime_request_routes(service)
+    }
+
+    pub fn roster_entry_routes(service: Arc<RosterEntryService>) -> Router {
+        create_roster_entry_routes(service)
+    }
+
+    pub fn shift_routes(service: Arc<ShiftService>) -> Router {
+        create_shift_routes(service)
     }
 
 }

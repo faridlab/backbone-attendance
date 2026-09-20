@@ -11,6 +11,14 @@
 # Add your hand-authored services, handlers, tests, and docs below as you write them.
 
 user_owned:
+
+  # The overtime pre-authorisation lifecycle (approvals seam port + service)
+  # and the emitted-for-it table migration pinned here so a later --force
+  # sweep treats it as hand-maintained.
+  - "src/application/service/overtime_approvals_port.rs"
+  - "src/application/service/overtime_request_lifecycle.rs"
+  - "migrations/20260911062003_create_overtime_request_table.up.sql"
+  - "migrations/20260911062003_create_overtime_request_table.down.sql"
   # Own the hand-written Attendance SQL (the present-days read-port) that the query service
   # delegates to. Declared here — not renamed with a `_custom` suffix — so the generator skips it
   # wholesale; this declaration is what makes editing it legitimate (mirrors backbone-hr's repo

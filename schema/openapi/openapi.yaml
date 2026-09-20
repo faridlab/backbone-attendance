@@ -19,6 +19,12 @@ tags:
     description: AttendanceSession management endpoints
   - name: KioskPins
     description: KioskPin management endpoints
+  - name: OvertimeRequests
+    description: OvertimeRequest management endpoints
+  - name: RosterEntries
+    description: RosterEntry management endpoints
+  - name: Shifts
+    description: Shift management endpoints
 
 paths:
   /api/v1/attendance/attendances:
@@ -1485,6 +1491,1104 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
+  /api/v1/attendance/overtime_requests:
+    get:
+      tags:
+        - OvertimeRequests
+      summary: List OvertimeRequests
+      description: Get a paginated list of OvertimeRequests with optional filtering and sorting
+      operationId: listOvertimeRequests
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+        - $ref: '#/components/parameters/SortByParam'
+        - $ref: '#/components/parameters/SortOrderParam'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OvertimeRequestList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags:
+        - OvertimeRequests
+      summary: Create OvertimeRequest
+      description: Create a new OvertimeRequest
+      operationId: createOvertimeRequest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOvertimeRequestRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OvertimeRequest'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/attendance/overtime_requests/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+
+    get:
+      tags:
+        - OvertimeRequests
+      summary: Get OvertimeRequest by ID
+      operationId: getOvertimeRequest
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OvertimeRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags:
+        - OvertimeRequests
+      summary: Update OvertimeRequest (full)
+      operationId: updateOvertimeRequest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateOvertimeRequestRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OvertimeRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      tags:
+        - OvertimeRequests
+      summary: Update OvertimeRequest (partial)
+      operationId: patchOvertimeRequest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchOvertimeRequestRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OvertimeRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags:
+        - OvertimeRequests
+      summary: Delete OvertimeRequest (soft)
+      operationId: deleteOvertimeRequest
+      responses:
+        '204':
+          description: Deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/attendance/overtime_requests/bulk:
+    post:
+      tags:
+        - OvertimeRequests
+      summary: Bulk create OvertimeRequests
+      operationId: bulkCreateOvertimeRequests
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/CreateOvertimeRequestRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OvertimeRequest'
+    put:
+      tags:
+        - OvertimeRequests
+      summary: Bulk update OvertimeRequests (full, atomic)
+      operationId: bulkUpdateOvertimeRequests
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                allOf:
+                  - type: object
+                    required: [id]
+                    properties:
+                      id:
+                        type: string
+                  - $ref: '#/components/schemas/UpdateOvertimeRequestRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OvertimeRequestBulkResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+    patch:
+      tags:
+        - OvertimeRequests
+      summary: Bulk partial-update OvertimeRequests (atomic)
+      operationId: bulkPatchOvertimeRequests
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [ids, patch]
+                  properties:
+                    ids:
+                      type: array
+                      items: { type: string }
+                    patch:
+                      type: object
+                      additionalProperties: true
+                - type: object
+                  required: [items]
+                  properties:
+                    items:
+                      type: array
+                      items:
+                        type: object
+                        required: [id, patch]
+                        properties:
+                          id: { type: string }
+                          patch: { type: object, additionalProperties: true }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OvertimeRequestBulkResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/attendance/overtime_requests/upsert:
+    post:
+      tags:
+        - OvertimeRequests
+      summary: Upsert OvertimeRequest
+      operationId: upsertOvertimeRequest
+      parameters:
+        - name: key_field
+          in: query
+          schema:
+            type: string
+        - name: key_value
+          in: query
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateOvertimeRequestRequest'
+      responses:
+        '200':
+          description: Upserted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OvertimeRequest'
+
+  /api/v1/attendance/overtime_requests/trash:
+    get:
+      tags:
+        - OvertimeRequests
+      summary: List deleted OvertimeRequests
+      operationId: listDeletedOvertimeRequests
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OvertimeRequestList'
+
+  /api/v1/attendance/overtime_requests/{id}/restore:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+    post:
+      tags:
+        - OvertimeRequests
+      summary: Restore deleted OvertimeRequest
+      operationId: restoreOvertimeRequest
+      responses:
+        '200':
+          description: Restored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OvertimeRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/attendance/overtime_requests/empty:
+    delete:
+      tags:
+        - OvertimeRequests
+      summary: Empty trash for OvertimeRequests
+      operationId: emptyTrashOvertimeRequests
+      responses:
+        '200':
+          description: Trash emptied
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted_count:
+                    type: integer
+
+  /api/v1/attendance/overtime_requests/delete/bulk:
+    post:
+      tags:
+        - OvertimeRequests
+      summary: Bulk soft-delete OvertimeRequests by ids (atomic)
+      operationId: bulkDeleteOvertimeRequests
+      requestBody:
+        $ref: '#/components/requestBodies/BatchIds'
+      responses:
+        '200':
+          description: Soft-deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  soft_deleted: { type: integer }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/attendance/overtime_requests/restore/bulk:
+    post:
+      tags:
+        - OvertimeRequests
+      summary: Bulk restore OvertimeRequests by ids (atomic)
+      operationId: bulkRestoreOvertimeRequests
+      requestBody:
+        $ref: '#/components/requestBodies/BatchIds'
+      responses:
+        '200':
+          description: Restored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OvertimeRequestBulkResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/attendance/overtime_requests/restore/all:
+    post:
+      tags:
+        - OvertimeRequests
+      summary: Restore all soft-deleted OvertimeRequests
+      operationId: restoreAllOvertimeRequests
+      responses:
+        '200':
+          description: Restored
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  restored: { type: integer }
+
+  /api/v1/attendance/overtime_requests/trash/bulk:
+    delete:
+      tags:
+        - OvertimeRequests
+      summary: Bulk permanently-delete OvertimeRequests from trash by ids (atomic)
+      operationId: bulkPermanentDeleteOvertimeRequests
+      requestBody:
+        $ref: '#/components/requestBodies/BatchIds'
+      responses:
+        '200':
+          description: Permanently deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  permanently_deleted: { type: integer }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/attendance/roster_entries:
+    get:
+      tags:
+        - RosterEntries
+      summary: List RosterEntries
+      description: Get a paginated list of RosterEntries with optional filtering and sorting
+      operationId: listRosterEntries
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+        - $ref: '#/components/parameters/SortByParam'
+        - $ref: '#/components/parameters/SortOrderParam'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RosterEntryList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags:
+        - RosterEntries
+      summary: Create RosterEntry
+      description: Create a new RosterEntry
+      operationId: createRosterEntry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRosterEntryRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RosterEntry'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/attendance/roster_entries/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+
+    get:
+      tags:
+        - RosterEntries
+      summary: Get RosterEntry by ID
+      operationId: getRosterEntry
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RosterEntry'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags:
+        - RosterEntries
+      summary: Update RosterEntry (full)
+      operationId: updateRosterEntry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRosterEntryRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RosterEntry'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      tags:
+        - RosterEntries
+      summary: Update RosterEntry (partial)
+      operationId: patchRosterEntry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchRosterEntryRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RosterEntry'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags:
+        - RosterEntries
+      summary: Delete RosterEntry (soft)
+      operationId: deleteRosterEntry
+      responses:
+        '204':
+          description: Deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/attendance/roster_entries/bulk:
+    post:
+      tags:
+        - RosterEntries
+      summary: Bulk create RosterEntries
+      operationId: bulkCreateRosterEntries
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/CreateRosterEntryRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RosterEntry'
+    put:
+      tags:
+        - RosterEntries
+      summary: Bulk update RosterEntries (full, atomic)
+      operationId: bulkUpdateRosterEntries
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                allOf:
+                  - type: object
+                    required: [id]
+                    properties:
+                      id:
+                        type: string
+                  - $ref: '#/components/schemas/UpdateRosterEntryRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RosterEntryBulkResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+    patch:
+      tags:
+        - RosterEntries
+      summary: Bulk partial-update RosterEntries (atomic)
+      operationId: bulkPatchRosterEntries
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [ids, patch]
+                  properties:
+                    ids:
+                      type: array
+                      items: { type: string }
+                    patch:
+                      type: object
+                      additionalProperties: true
+                - type: object
+                  required: [items]
+                  properties:
+                    items:
+                      type: array
+                      items:
+                        type: object
+                        required: [id, patch]
+                        properties:
+                          id: { type: string }
+                          patch: { type: object, additionalProperties: true }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RosterEntryBulkResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/attendance/roster_entries/upsert:
+    post:
+      tags:
+        - RosterEntries
+      summary: Upsert RosterEntry
+      operationId: upsertRosterEntry
+      parameters:
+        - name: key_field
+          in: query
+          schema:
+            type: string
+        - name: key_value
+          in: query
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRosterEntryRequest'
+      responses:
+        '200':
+          description: Upserted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RosterEntry'
+
+  /api/v1/attendance/roster_entries/trash:
+    get:
+      tags:
+        - RosterEntries
+      summary: List deleted RosterEntries
+      operationId: listDeletedRosterEntries
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RosterEntryList'
+
+  /api/v1/attendance/roster_entries/{id}/restore:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+    post:
+      tags:
+        - RosterEntries
+      summary: Restore deleted RosterEntry
+      operationId: restoreRosterEntry
+      responses:
+        '200':
+          description: Restored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RosterEntry'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/attendance/roster_entries/empty:
+    delete:
+      tags:
+        - RosterEntries
+      summary: Empty trash for RosterEntries
+      operationId: emptyTrashRosterEntries
+      responses:
+        '200':
+          description: Trash emptied
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted_count:
+                    type: integer
+
+  /api/v1/attendance/roster_entries/delete/bulk:
+    post:
+      tags:
+        - RosterEntries
+      summary: Bulk soft-delete RosterEntries by ids (atomic)
+      operationId: bulkDeleteRosterEntries
+      requestBody:
+        $ref: '#/components/requestBodies/BatchIds'
+      responses:
+        '200':
+          description: Soft-deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  soft_deleted: { type: integer }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/attendance/roster_entries/restore/bulk:
+    post:
+      tags:
+        - RosterEntries
+      summary: Bulk restore RosterEntries by ids (atomic)
+      operationId: bulkRestoreRosterEntries
+      requestBody:
+        $ref: '#/components/requestBodies/BatchIds'
+      responses:
+        '200':
+          description: Restored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RosterEntryBulkResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/attendance/roster_entries/restore/all:
+    post:
+      tags:
+        - RosterEntries
+      summary: Restore all soft-deleted RosterEntries
+      operationId: restoreAllRosterEntries
+      responses:
+        '200':
+          description: Restored
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  restored: { type: integer }
+
+  /api/v1/attendance/roster_entries/trash/bulk:
+    delete:
+      tags:
+        - RosterEntries
+      summary: Bulk permanently-delete RosterEntries from trash by ids (atomic)
+      operationId: bulkPermanentDeleteRosterEntries
+      requestBody:
+        $ref: '#/components/requestBodies/BatchIds'
+      responses:
+        '200':
+          description: Permanently deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  permanently_deleted: { type: integer }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/attendance/shifts:
+    get:
+      tags:
+        - Shifts
+      summary: List Shifts
+      description: Get a paginated list of Shifts with optional filtering and sorting
+      operationId: listShifts
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+        - $ref: '#/components/parameters/SortByParam'
+        - $ref: '#/components/parameters/SortOrderParam'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShiftList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags:
+        - Shifts
+      summary: Create Shift
+      description: Create a new Shift
+      operationId: createShift
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateShiftRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Shift'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/attendance/shifts/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+
+    get:
+      tags:
+        - Shifts
+      summary: Get Shift by ID
+      operationId: getShift
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Shift'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags:
+        - Shifts
+      summary: Update Shift (full)
+      operationId: updateShift
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateShiftRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Shift'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      tags:
+        - Shifts
+      summary: Update Shift (partial)
+      operationId: patchShift
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchShiftRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Shift'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags:
+        - Shifts
+      summary: Delete Shift (soft)
+      operationId: deleteShift
+      responses:
+        '204':
+          description: Deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/attendance/shifts/bulk:
+    post:
+      tags:
+        - Shifts
+      summary: Bulk create Shifts
+      operationId: bulkCreateShifts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/CreateShiftRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Shift'
+    put:
+      tags:
+        - Shifts
+      summary: Bulk update Shifts (full, atomic)
+      operationId: bulkUpdateShifts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                allOf:
+                  - type: object
+                    required: [id]
+                    properties:
+                      id:
+                        type: string
+                  - $ref: '#/components/schemas/UpdateShiftRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShiftBulkResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+    patch:
+      tags:
+        - Shifts
+      summary: Bulk partial-update Shifts (atomic)
+      operationId: bulkPatchShifts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [ids, patch]
+                  properties:
+                    ids:
+                      type: array
+                      items: { type: string }
+                    patch:
+                      type: object
+                      additionalProperties: true
+                - type: object
+                  required: [items]
+                  properties:
+                    items:
+                      type: array
+                      items:
+                        type: object
+                        required: [id, patch]
+                        properties:
+                          id: { type: string }
+                          patch: { type: object, additionalProperties: true }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShiftBulkResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/attendance/shifts/upsert:
+    post:
+      tags:
+        - Shifts
+      summary: Upsert Shift
+      operationId: upsertShift
+      parameters:
+        - name: key_field
+          in: query
+          schema:
+            type: string
+        - name: key_value
+          in: query
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateShiftRequest'
+      responses:
+        '200':
+          description: Upserted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Shift'
+
+  /api/v1/attendance/shifts/trash:
+    get:
+      tags:
+        - Shifts
+      summary: List deleted Shifts
+      operationId: listDeletedShifts
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShiftList'
+
+  /api/v1/attendance/shifts/{id}/restore:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+    post:
+      tags:
+        - Shifts
+      summary: Restore deleted Shift
+      operationId: restoreShift
+      responses:
+        '200':
+          description: Restored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Shift'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/attendance/shifts/empty:
+    delete:
+      tags:
+        - Shifts
+      summary: Empty trash for Shifts
+      operationId: emptyTrashShifts
+      responses:
+        '200':
+          description: Trash emptied
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted_count:
+                    type: integer
+
+  /api/v1/attendance/shifts/delete/bulk:
+    post:
+      tags:
+        - Shifts
+      summary: Bulk soft-delete Shifts by ids (atomic)
+      operationId: bulkDeleteShifts
+      requestBody:
+        $ref: '#/components/requestBodies/BatchIds'
+      responses:
+        '200':
+          description: Soft-deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  soft_deleted: { type: integer }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/attendance/shifts/restore/bulk:
+    post:
+      tags:
+        - Shifts
+      summary: Bulk restore Shifts by ids (atomic)
+      operationId: bulkRestoreShifts
+      requestBody:
+        $ref: '#/components/requestBodies/BatchIds'
+      responses:
+        '200':
+          description: Restored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShiftBulkResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/attendance/shifts/restore/all:
+    post:
+      tags:
+        - Shifts
+      summary: Restore all soft-deleted Shifts
+      operationId: restoreAllShifts
+      responses:
+        '200':
+          description: Restored
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  restored: { type: integer }
+
+  /api/v1/attendance/shifts/trash/bulk:
+    delete:
+      tags:
+        - Shifts
+      summary: Bulk permanently-delete Shifts from trash by ids (atomic)
+      operationId: bulkPermanentDeleteShifts
+      requestBody:
+        $ref: '#/components/requestBodies/BatchIds'
+      responses:
+        '200':
+          description: Permanently deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  permanently_deleted: { type: integer }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
 components:
   schemas:
     Attendance:
@@ -2065,6 +3169,399 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/KioskPin'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+
+    OvertimeRequest:
+      type: object
+      required:
+        - id
+        - employee_id
+        - date
+        - hours_planned
+        - reason
+        - status
+        - metadata
+      properties:
+        id:
+          type: string
+          format: uuid
+        employee_id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date
+        hours_planned:
+          type: string
+        reason:
+          type: string
+        status:
+          type: string
+        approval_request_id:
+          nullable: true
+          type: string
+          format: uuid
+        decided_at:
+          nullable: true
+          type: string
+          format: date-time
+        metadata:
+          type: object
+
+    OvertimeRequestBulkResult:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OvertimeRequest'
+        total: { type: integer }
+        failed: { type: integer }
+        errors:
+          type: array
+          items: { type: string }
+
+    CreateOvertimeRequestRequest:
+      type: object
+      required:
+        - employee_id
+        - date
+        - hours_planned
+        - reason
+        - status
+        - metadata
+      properties:
+        employee_id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date
+        hours_planned:
+          type: string
+        reason:
+          type: string
+        status:
+          type: string
+        approval_request_id:
+          nullable: true
+          type: string
+          format: uuid
+        decided_at:
+          nullable: true
+          type: string
+          format: date-time
+        metadata:
+          type: object
+
+    UpdateOvertimeRequestRequest:
+      type: object
+      required:
+        - employee_id
+        - date
+        - hours_planned
+        - reason
+        - status
+        - metadata
+      properties:
+        employee_id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date
+        hours_planned:
+          type: string
+        reason:
+          type: string
+        status:
+          type: string
+        approval_request_id:
+          nullable: true
+          type: string
+          format: uuid
+        decided_at:
+          nullable: true
+          type: string
+          format: date-time
+        metadata:
+          type: object
+
+    PatchOvertimeRequestRequest:
+      type: object
+      properties:
+        employee_id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date
+        hours_planned:
+          type: string
+        reason:
+          type: string
+        status:
+          type: string
+        approval_request_id:
+          nullable: true
+          type: string
+          format: uuid
+        decided_at:
+          nullable: true
+          type: string
+          format: date-time
+        metadata:
+          type: object
+
+    OvertimeRequestList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OvertimeRequest'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+
+    RosterEntry:
+      type: object
+      required:
+        - id
+        - employee_id
+        - date
+        - metadata
+      properties:
+        id:
+          type: string
+          format: uuid
+        employee_id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date
+        shift_id:
+          nullable: true
+          type: string
+          format: uuid
+        metadata:
+          type: object
+
+    RosterEntryBulkResult:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RosterEntry'
+        total: { type: integer }
+        failed: { type: integer }
+        errors:
+          type: array
+          items: { type: string }
+
+    CreateRosterEntryRequest:
+      type: object
+      required:
+        - employee_id
+        - date
+        - metadata
+      properties:
+        employee_id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date
+        shift_id:
+          nullable: true
+          type: string
+          format: uuid
+        metadata:
+          type: object
+
+    UpdateRosterEntryRequest:
+      type: object
+      required:
+        - employee_id
+        - date
+        - metadata
+      properties:
+        employee_id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date
+        shift_id:
+          nullable: true
+          type: string
+          format: uuid
+        metadata:
+          type: object
+
+    PatchRosterEntryRequest:
+      type: object
+      properties:
+        employee_id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date
+        shift_id:
+          nullable: true
+          type: string
+          format: uuid
+        metadata:
+          type: object
+
+    RosterEntryList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RosterEntry'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+
+    Shift:
+      type: object
+      required:
+        - id
+        - name
+        - code
+        - is_active
+        - metadata
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        code:
+          type: string
+        start_time:
+          nullable: true
+          type: string
+          format: time
+        end_time:
+          nullable: true
+          type: string
+          format: time
+        break_minutes:
+          nullable: true
+          type: integer
+          format: int32
+        is_active:
+          type: boolean
+        metadata:
+          type: object
+
+    ShiftBulkResult:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Shift'
+        total: { type: integer }
+        failed: { type: integer }
+        errors:
+          type: array
+          items: { type: string }
+
+    CreateShiftRequest:
+      type: object
+      required:
+        - name
+        - code
+        - is_active
+        - metadata
+      properties:
+        name:
+          type: string
+        code:
+          type: string
+        start_time:
+          nullable: true
+          type: string
+          format: time
+        end_time:
+          nullable: true
+          type: string
+          format: time
+        break_minutes:
+          nullable: true
+          type: integer
+          format: int32
+        is_active:
+          type: boolean
+        metadata:
+          type: object
+
+    UpdateShiftRequest:
+      type: object
+      required:
+        - name
+        - code
+        - is_active
+        - metadata
+      properties:
+        name:
+          type: string
+        code:
+          type: string
+        start_time:
+          nullable: true
+          type: string
+          format: time
+        end_time:
+          nullable: true
+          type: string
+          format: time
+        break_minutes:
+          nullable: true
+          type: integer
+          format: int32
+        is_active:
+          type: boolean
+        metadata:
+          type: object
+
+    PatchShiftRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        code:
+          type: string
+        start_time:
+          nullable: true
+          type: string
+          format: time
+        end_time:
+          nullable: true
+          type: string
+          format: time
+        break_minutes:
+          nullable: true
+          type: integer
+          format: int32
+        is_active:
+          type: boolean
+        metadata:
+          type: object
+
+    ShiftList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Shift'
         meta:
           $ref: '#/components/schemas/PaginationMeta'
 

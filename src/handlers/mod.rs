@@ -13,6 +13,9 @@ use crate::application::service::AttendanceService;
 use crate::application::service::AttendanceClockService;
 use crate::application::service::AttendanceSessionService;
 use crate::application::service::KioskPinService;
+use crate::application::service::OvertimeRequestService;
+use crate::application::service::RosterEntryService;
+use crate::application::service::ShiftService;
 
 /// Application state for dependency injection.
 ///
@@ -40,6 +43,12 @@ pub struct AppState {
     pub attendance_session_service: Arc<AttendanceSessionService>,
     /// KioskPin service
     pub kiosk_pin_service: Arc<KioskPinService>,
+    /// OvertimeRequest service
+    pub overtime_request_service: Arc<OvertimeRequestService>,
+    /// RosterEntry service
+    pub roster_entry_service: Arc<RosterEntryService>,
+    /// Shift service
+    pub shift_service: Arc<ShiftService>,
 }
 
 impl AppState {
@@ -48,13 +57,19 @@ impl AppState {
         attendance_service: Arc<AttendanceService>,
         attendance_clock_service: Arc<AttendanceClockService>,
         attendance_session_service: Arc<AttendanceSessionService>,
-        kiosk_pin_service: Arc<KioskPinService>
+        kiosk_pin_service: Arc<KioskPinService>,
+        overtime_request_service: Arc<OvertimeRequestService>,
+        roster_entry_service: Arc<RosterEntryService>,
+        shift_service: Arc<ShiftService>
     ) -> Self {
         Self {
             attendance_service,
             attendance_clock_service,
             attendance_session_service,
             kiosk_pin_service,
+            overtime_request_service,
+            roster_entry_service,
+            shift_service,
         }
     }
 
@@ -65,6 +80,9 @@ impl AppState {
             attendance_clock_service: module.attendance_clock_service.clone(),
             attendance_session_service: module.attendance_session_service.clone(),
             kiosk_pin_service: module.kiosk_pin_service.clone(),
+            overtime_request_service: module.overtime_request_service.clone(),
+            roster_entry_service: module.roster_entry_service.clone(),
+            shift_service: module.shift_service.clone(),
         }
     }
 }
@@ -78,6 +96,9 @@ pub struct AppStateBuilder {
     attendance_clock_service: Option<Arc<AttendanceClockService>>,
     attendance_session_service: Option<Arc<AttendanceSessionService>>,
     kiosk_pin_service: Option<Arc<KioskPinService>>,
+    overtime_request_service: Option<Arc<OvertimeRequestService>>,
+    roster_entry_service: Option<Arc<RosterEntryService>>,
+    shift_service: Option<Arc<ShiftService>>,
 }
 
 impl AppStateBuilder {
@@ -110,6 +131,24 @@ impl AppStateBuilder {
         self
     }
 
+    /// Set the OvertimeRequest service.
+    pub fn with_overtime_request_service(mut self, service: Arc<OvertimeRequestService>) -> Self {
+        self.overtime_request_service = Some(service);
+        self
+    }
+
+    /// Set the RosterEntry service.
+    pub fn with_roster_entry_service(mut self, service: Arc<RosterEntryService>) -> Self {
+        self.roster_entry_service = Some(service);
+        self
+    }
+
+    /// Set the Shift service.
+    pub fn with_shift_service(mut self, service: Arc<ShiftService>) -> Self {
+        self.shift_service = Some(service);
+        self
+    }
+
     /// Build the AppState.
     ///
     /// # Panics
@@ -121,6 +160,9 @@ impl AppStateBuilder {
             attendance_clock_service: self.attendance_clock_service.expect("attendance_clock_service is required"),
             attendance_session_service: self.attendance_session_service.expect("attendance_session_service is required"),
             kiosk_pin_service: self.kiosk_pin_service.expect("kiosk_pin_service is required"),
+            overtime_request_service: self.overtime_request_service.expect("overtime_request_service is required"),
+            roster_entry_service: self.roster_entry_service.expect("roster_entry_service is required"),
+            shift_service: self.shift_service.expect("shift_service is required"),
         }
     }
 }

@@ -1,0 +1,74 @@
+# =============================================================================
+# Domain: attendance
+# Entity: OvertimeRequest
+# Description: Overtime authorised IN WRITING before it is worked — the
+#              pre-authorisation record the law and the payroll handoff lean
+#              on. Files into the approvals spine as resource
+#              'overtime_request'; the approved row is the ceiling later
+#              checks compare claimed and clocked overtime against.
+# =============================================================================
+
+models:
+  - name: OvertimeRequest
+    collection: overtime_requests
+    description: "Pre-authorised overtime: who, which day, how many planned hours, why — with its approval trail."
+
+    fields:
+      id:
+        type: uuid
+        attributes: ["@id", "@default(uuid)"]
+
+      employee_id:
+        type: uuid
+        attributes: ["@required", "@exclude_from_foreign_key_check"]
+        description: "The employee who will work the overtime"
+
+      date:
+        type: date
+        attributes: ["@required"]
+        description: "The planned day (pre-authorisation is per day)"
+
+      hours_planned:
+        type: decimal
+        attributes: ["@required", "@precision(5,2)", "@positive"]
+        description: "Planned overtime hours (the authorised ceiling)"
+
+      reason:
+        type: string
+        attributes: ["@required", "@length(max=1000)"]
+        description: "Why the overtime is needed (the written authorisation's substance)"
+
+      status:
+        type: OvertimeRequestStatus
+        attributes: ["@required", "@default(pending)"]
+        description: "pending → approved | rejected | cancelled"
+
+      approval_request_id:
+        type: uuid?
+        attributes: ["@exclude_from_foreign_key_check"]
+        description: "The approvals-engine request vouching for this authorisation"
+
+      decided_at:
+        type: datetime?
+        description: "When the approval verdict landed"
+
+      metadata:
+        type: Metadata
+        attributes: ["@audit_metadata"]
+        description: Audit metadata
+
+    indexes:
+      - type: index
+        fields: [employee_id, date]
+      - type: index
+        fields: [status]
+
+enums:
+  - name: OvertimeRequestStatus
+    description: "The pre-authorisation trail."
+    variants:
+      - name: pending
+        default: true
+      - name: approved
+      - name: rejected
+      - name: cancelled

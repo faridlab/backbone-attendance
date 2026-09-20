@@ -10,10 +10,15 @@ pub mod attendance_api_test;
 pub mod attendance_clock_api_test;
 pub mod attendance_session_api_test;
 pub mod kiosk_pin_api_test;
+pub mod overtime_request_api_test;
+pub mod roster_entry_api_test;
+pub mod shift_api_test;
 
 // Re-exports for convenience
-pub use crud_test_base::*;
 pub use attendance_api_test::*;
 pub use attendance_clock_api_test::*;
 pub use attendance_session_api_test::*;
 pub use kiosk_pin_api_test::*;
+pub use overtime_request_api_test::*;
+pub use roster_entry_api_test::*;
+pub use shift_api_test::*;

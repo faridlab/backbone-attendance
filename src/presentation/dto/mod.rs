@@ -9,6 +9,7 @@ pub mod attendance_dto;
 pub mod attendance_clock_dto;
 pub mod attendance_session_dto;
 pub mod kiosk_pin_dto;
+pub mod overtime_request_dto;
 pub mod roster_entry_dto;
 pub mod shift_dto;
 
@@ -37,14 +38,6 @@ pub use attendance_session_dto::{
     AttendanceSessionListResponseDto,
     AttendanceSessionSummaryDto,
 };
-pub use roster_entry_dto::{
-    CreateRosterEntryDto, UpdateRosterEntryDto, PatchRosterEntryDto,
-    RosterEntryResponseDto, RosterEntryListResponseDto, RosterEntrySummaryDto,
-};
-pub use shift_dto::{
-    CreateShiftDto, UpdateShiftDto, PatchShiftDto,
-    ShiftResponseDto, ShiftListResponseDto, ShiftSummaryDto,
-};
 pub use kiosk_pin_dto::{
     CreateKioskPinDto,
     UpdateKioskPinDto,
@@ -52,6 +45,30 @@ pub use kiosk_pin_dto::{
     KioskPinResponseDto,
     KioskPinListResponseDto,
     KioskPinSummaryDto,
+};
+pub use overtime_request_dto::{
+    CreateOvertimeRequestDto,
+    UpdateOvertimeRequestDto,
+    PatchOvertimeRequestDto,
+    OvertimeRequestResponseDto,
+    OvertimeRequestListResponseDto,
+    OvertimeRequestSummaryDto,
+};
+pub use roster_entry_dto::{
+    CreateRosterEntryDto,
+    UpdateRosterEntryDto,
+    PatchRosterEntryDto,
+    RosterEntryResponseDto,
+    RosterEntryListResponseDto,
+    RosterEntrySummaryDto,
+};
+pub use shift_dto::{
+    CreateShiftDto,
+    UpdateShiftDto,
+    PatchShiftDto,
+    ShiftResponseDto,
+    ShiftListResponseDto,
+    ShiftSummaryDto,
 };
 
 // Common pagination types

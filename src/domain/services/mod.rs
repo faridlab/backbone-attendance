@@ -6,11 +6,17 @@ pub mod attendance_domain_policy;
 pub mod attendance_clock_domain_policy;
 pub mod attendance_session_domain_policy;
 pub mod kiosk_pin_domain_policy;
+pub mod overtime_request_domain_policy;
+pub mod roster_entry_domain_policy;
+pub mod shift_domain_policy;
 
 pub use attendance_domain_policy::AttendanceDomainPolicy;
 pub use attendance_clock_domain_policy::AttendanceClockDomainPolicy;
 pub use attendance_session_domain_policy::AttendanceSessionDomainPolicy;
 pub use kiosk_pin_domain_policy::KioskPinDomainPolicy;
+pub use overtime_request_domain_policy::OvertimeRequestDomainPolicy;
+pub use roster_entry_domain_policy::RosterEntryDomainPolicy;
+pub use shift_domain_policy::ShiftDomainPolicy;
 
 // <<< CUSTOM
 // END CUSTOM

@@ -47,6 +47,7 @@ use crate::AttendanceModule;
 
 use super::{
     create_attendance_clock_read_routes, create_attendance_read_routes,
+    create_overtime_request_read_routes,
     create_attendance_session_read_routes,
 };
 
@@ -348,5 +349,140 @@ pub fn create_guarded_attendance_routes(m: &AttendanceModule) -> Router {
         .merge(create_attendance_read_routes(m.attendance_service.clone()))
         .merge(create_attendance_clock_read_routes(m.attendance_clock_service.clone()))
         .merge(create_attendance_session_read_routes(m.attendance_session_service.clone()))
+        // The overtime pre-authorisation: the request entity's generic reads
+        // plus the lifecycle verbs (submit / confirm / refuse / cancel over
+        // the approvals seam).
+        .merge(create_overtime_request_read_routes(
+            m.overtime_request_service.clone(),
+        ))
+        .merge(create_overtime_lifecycle_routes(m.overtime_request_lifecycle.clone()))
         .merge(writes)
+}
+
+// ── overtime pre-authorisation verbs ──────────────────────────────────────────
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct OvertimeSubmitBody {
+    employee_id: uuid::Uuid,
+    date: chrono::NaiveDate,
+    hours_planned: rust_decimal::Decimal,
+    reason: String,
+}
+
+async fn overtime_submit(
+    _org: backbone_auth::org::OrgContext,
+    axum::extract::State(svc): axum::extract::State<
+        std::sync::Arc<
+            crate::application::service::overtime_request_lifecycle::OvertimeLifecycleService,
+        >,
+    >,
+    axum::Json(b): axum::Json<OvertimeSubmitBody>,
+) -> axum::response::Response {
+    use crate::application::service::overtime_request_lifecycle::OvertimeRequestError as E;
+    match svc
+        .submit(b.employee_id, b.date, b.hours_planned, b.reason)
+        .await
+    {
+        Ok(id) => (
+            axum::http::StatusCode::CREATED,
+            axum::Json(serde_json::json!({ "id": id })),
+        )
+            .into_response(),
+        Err(e) => {
+            let (status, code) = match &e {
+                E::NotFound => (axum::http::StatusCode::NOT_FOUND, "not_found"),
+                E::Invalid(_) => (axum::http::StatusCode::UNPROCESSABLE_ENTITY, "invalid_request"),
+                E::Verdict(_) => (axum::http::StatusCode::CONFLICT, "verdict_not_satisfied"),
+                E::Seam(_) => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "approvals_seam_error"),
+                E::Db(_) => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "database_error"),
+            };
+            (
+                status,
+                axum::Json(serde_json::json!({ "error": code, "message": e.to_string() })),
+            )
+                .into_response()
+        }
+    }
+}
+
+async fn overtime_transition(
+    which: &'static str,
+    svc: std::sync::Arc<
+        crate::application::service::overtime_request_lifecycle::OvertimeLifecycleService,
+    >,
+    request_id: uuid::Uuid,
+) -> axum::response::Response {
+    use crate::application::service::overtime_request_lifecycle::OvertimeRequestError as E;
+    let out: Result<(), E> = match which {
+        "confirm" => svc.confirm(request_id).await,
+        "refuse" => svc.refuse(request_id).await,
+        _ => svc.cancel(request_id).await,
+    };
+    match out {
+        Ok(()) => axum::http::StatusCode::NO_CONTENT.into_response(),
+        Err(e) => {
+            let (status, code) = match &e {
+                E::NotFound => (axum::http::StatusCode::NOT_FOUND, "not_found"),
+                E::Invalid(_) => (axum::http::StatusCode::UNPROCESSABLE_ENTITY, "invalid_request"),
+                E::Verdict(_) => (axum::http::StatusCode::CONFLICT, "verdict_not_satisfied"),
+                E::Seam(_) => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "approvals_seam_error"),
+                E::Db(_) => (axum::http::StatusCode::INTERNAL_SERVER_ERROR, "database_error"),
+            };
+            (
+                status,
+                axum::Json(serde_json::json!({ "error": code, "message": e.to_string() })),
+            )
+                .into_response()
+        }
+    }
+}
+
+async fn overtime_confirm(
+    _org: backbone_auth::org::OrgContext,
+    axum::extract::State(svc): axum::extract::State<
+        std::sync::Arc<
+            crate::application::service::overtime_request_lifecycle::OvertimeLifecycleService,
+        >,
+    >,
+    axum::extract::Path(request_id): axum::extract::Path<uuid::Uuid>,
+) -> axum::response::Response {
+    overtime_transition("confirm", svc, request_id).await
+}
+
+async fn overtime_refuse(
+    _org: backbone_auth::org::OrgContext,
+    axum::extract::State(svc): axum::extract::State<
+        std::sync::Arc<
+            crate::application::service::overtime_request_lifecycle::OvertimeLifecycleService,
+        >,
+    >,
+    axum::extract::Path(request_id): axum::extract::Path<uuid::Uuid>,
+) -> axum::response::Response {
+    overtime_transition("refuse", svc, request_id).await
+}
+
+async fn overtime_cancel(
+    _org: backbone_auth::org::OrgContext,
+    axum::extract::State(svc): axum::extract::State<
+        std::sync::Arc<
+            crate::application::service::overtime_request_lifecycle::OvertimeLifecycleService,
+        >,
+    >,
+    axum::extract::Path(request_id): axum::extract::Path<uuid::Uuid>,
+) -> axum::response::Response {
+    overtime_transition("cancel", svc, request_id).await
+}
+
+fn create_overtime_lifecycle_routes(
+    svc: std::sync::Arc<
+        crate::application::service::overtime_request_lifecycle::OvertimeLifecycleService,
+    >,
+) -> Router {
+    Router::new()
+        .route("/attendance/overtime-requests/submit", post(overtime_submit))
+        .route("/attendance/overtime-requests/:request_id/confirm", post(overtime_confirm))
+        .route("/attendance/overtime-requests/:request_id/refuse", post(overtime_refuse))
+        .route("/attendance/overtime-requests/:request_id/cancel", post(overtime_cancel))
+        .with_state(svc)
 }
