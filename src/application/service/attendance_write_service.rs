@@ -363,7 +363,7 @@ impl AttendanceWriteService {
                     .await
             }
             (PunchDirection::Out, Some(session)) => {
-                self.close_session_on(&mut tx, session, punched_at, correction_reason, device_ref)
+                self.close_session_on(&mut tx, session, punched_at, correction_reason, device_ref, source.clone())
                     .await
             }
             (PunchDirection::Out, None) => Err(AttendanceWriteError::NoOpenSession),
@@ -618,7 +618,7 @@ impl AttendanceWriteService {
         let open = self.repo.find_open_session(conn, employee_id).await?;
         match open {
             Some(session) => {
-                self.close_session_on(conn, session, punched_at, None, None).await
+                self.close_session_on(conn, session, punched_at, None, None, PunchSource::Admin).await
             }
             None => {
                 self.open_session_on(conn, employee_id, punched_at, source, None, None).await
@@ -674,6 +674,7 @@ impl AttendanceWriteService {
         check_out: DateTime<Utc>,
         correction_reason: Option<&str>,
         device_ref: Option<&str>,
+        source: PunchSource,
     ) -> Result<PunchOutcome, AttendanceWriteError> {
         let now = Utc::now();
         if check_out <= session.check_in {
@@ -690,7 +691,7 @@ impl AttendanceWriteService {
         self.repo
             .insert_clock_event_sourced(
                 &mut *conn, closed.id, closed.employee_id, closed.date, check_out, "out", now, false,
-                device_ref, Some(&source_label(&session)),
+                device_ref, Some(&source.to_string()),
             )
             .await?;
         self.repo
@@ -734,13 +735,4 @@ impl SessionRow {
             is_break: false,
         }
     }
-}
-
-/// The close event's source label: sessions carry the OPEN punch's source
-/// (the session column), and the close keeps it unless a correction says
-/// otherwise.
-fn source_label(_session: &SessionRow) -> String {
-    // Session rows carry no source column in the read shape; the close event
-    // defaults to the kiosk vocabulary member unless a correction overrides.
-    "kiosk".to_string()
 }
