@@ -250,21 +250,10 @@ impl backbone_orm::EntityRepoMeta for Attendance {
         let mut m = std::collections::HashMap::new();
         m.insert("id".to_string(), "uuid".to_string());
         m.insert("employee_id".to_string(), "uuid".to_string());
-        // Temporal cast hints: without them a filter like date[eq]=YYYY-MM-DD
-        // binds text and Postgres has no implicit `date = text` operator.
-        m.insert("date".to_string(), "date".to_string());
-        m.insert("clockin".to_string(), "time".to_string());
-        m.insert("clockout".to_string(), "time".to_string());
         m
     }
     fn search_fields() -> &'static [&'static str] {
         &[]
-    }
-    /// Cross-module to-one relation: the employee the day belongs to. The
-    /// schema-qualified name passes the qualifier through untouched; hydration
-    /// rides the scoped fetch so the org fence applies to the related row.
-    fn relations() -> &'static [(&'static str, &'static str, &'static str)] {
-        &[("employee", "employee.employees", "employeeId")]
     }
 }
 

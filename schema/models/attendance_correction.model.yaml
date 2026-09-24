@@ -1,0 +1,86 @@
+# =============================================================================
+# Domain: attendance
+# Entity: AttendanceCorrection
+# Description: An employee's own clock-session edit, waiting for a decision.
+#              The correction row holds the PROPOSED bounds and the reason;
+#              nothing touches the session until the approvals engine says
+#              approved and the apply verb runs. Below-threshold corrections
+#              (a host policy) may skip the wait and apply at submit.
+# =============================================================================
+
+models:
+  - name: AttendanceCorrection
+    collection: attendance_corrections
+    description: "A proposed clock-session correction, applied only when approved."
+
+    fields:
+      id:
+        type: uuid
+        attributes: ["@id", "@default(uuid)"]
+        description: "Unique correction id"
+
+      session_id:
+        type: uuid
+        attributes: ["@required", "@foreign_key(AttendanceSession.id)"]
+        description: "The session this correction rewrites # FK attendance.attendance_sessions.id (in-module)"
+
+      employee_id:
+        type: uuid
+        attributes: ["@required", "@exclude_from_foreign_key_check"]
+        description: "The employee whose session it is # logical FK employee.Employee.id"
+
+      check_in:
+        type: datetime
+        attributes: ["@required"]
+        description: "Proposed check-in bound"
+
+      check_out:
+        type: datetime?
+        description: "Proposed check-out bound (open session when null)"
+
+      reason:
+        type: string
+        attributes: ["@required", "@length(max=500)"]
+        description: "Why the session is wrong"
+
+      status:
+        type: CorrectionStatus
+        attributes: ["@required", "@default(pending)"]
+        description: "pending → applied | rejected | cancelled"
+
+      approval_request_id:
+        type: uuid?
+        attributes: ["@exclude_from_foreign_key_check"]
+        description: "The approvals-engine request vouching for this correction"
+
+      submitted_at:
+        type: datetime
+        attributes: ["@required"]
+        description: "When the correction was proposed"
+
+      metadata:
+        type: Metadata
+        attributes: ["@audit_metadata"]
+        description: "Audit metadata"
+
+    indexes:
+      - type: index
+        fields: [session_id]
+      - type: index
+        fields: [employee_id]
+      - type: index
+        fields: [status]
+
+enums:
+  - name: CorrectionStatus
+    description: "Correction workflow status"
+    variants:
+      - name: pending
+        default: true
+        description: "Waiting on a decision (or a below-threshold auto-apply)"
+      - name: applied
+        description: "The session was rewritten with the proposed bounds"
+      - name: rejected
+        description: "The correction was refused; the session stands"
+      - name: cancelled
+        description: "Withdrawn before a decision"

@@ -34,6 +34,7 @@ pub use infrastructure::persistence::*;
 // Re-exports - Application services
 pub use application::service::AttendanceService;
 pub use application::service::AttendanceClockService;
+pub use application::service::AttendanceCorrectionService;
 pub use application::service::AttendanceSessionService;
 pub use application::service::KioskPinService;
 pub use application::service::OvertimeRequestService;
@@ -70,6 +71,7 @@ use sqlx::PgPool;
 pub struct AttendanceModule {
     pub(crate) attendance_service: Arc<AttendanceService>,
     pub(crate) attendance_clock_service: Arc<AttendanceClockService>,
+    pub(crate) attendance_correction_service: Arc<AttendanceCorrectionService>,
     pub(crate) attendance_session_service: Arc<AttendanceSessionService>,
     pub(crate) kiosk_pin_service: Arc<KioskPinService>,
     pub(crate) overtime_request_service: Arc<OvertimeRequestService>,
@@ -89,6 +91,10 @@ pub struct AttendanceModule {
     /// over the approvals seam) — user-owned, not schema-derived.
     pub(crate) overtime_request_lifecycle:
         Arc<crate::application::service::overtime_request_lifecycle::OvertimeLifecycleService>,
+    /// The correction lifecycle (submit/apply/reject/cancel over the
+    /// approvals seam) — user-owned, not schema-derived.
+    pub(crate) attendance_correction_lifecycle:
+        Arc<crate::application::service::attendance_correction_lifecycle::CorrectionLifecycleService>,
     // END CUSTOM
 }
 
@@ -107,6 +113,7 @@ impl AttendanceModule {
         use presentation::http::{
             create_attendance_routes,
             create_attendance_clock_routes,
+            create_attendance_correction_routes,
             create_attendance_session_routes,
             create_kiosk_pin_routes,
             create_overtime_request_routes,
@@ -117,6 +124,7 @@ impl AttendanceModule {
         Router::new()
             .merge(create_attendance_routes(self.attendance_service.clone()))
             .merge(create_attendance_clock_routes(self.attendance_clock_service.clone()))
+            .merge(create_attendance_correction_routes(self.attendance_correction_service.clone()))
             .merge(create_attendance_session_routes(self.attendance_session_service.clone()))
             .merge(create_kiosk_pin_routes(self.kiosk_pin_service.clone()))
             .merge(create_overtime_request_routes(self.overtime_request_service.clone()))
@@ -143,6 +151,7 @@ impl AttendanceModule {
         use presentation::http::{
             create_attendance_read_routes,
             create_attendance_clock_read_routes,
+            create_attendance_correction_read_routes,
             create_attendance_session_read_routes,
             create_kiosk_pin_read_routes,
             create_overtime_request_read_routes,
@@ -153,6 +162,7 @@ impl AttendanceModule {
         Router::new()
             .merge(create_attendance_read_routes(self.attendance_service.clone()))
             .merge(create_attendance_clock_read_routes(self.attendance_clock_service.clone()))
+            .merge(create_attendance_correction_read_routes(self.attendance_correction_service.clone()))
             .merge(create_attendance_session_read_routes(self.attendance_session_service.clone()))
             .merge(create_kiosk_pin_read_routes(self.kiosk_pin_service.clone()))
             .merge(create_overtime_request_read_routes(self.overtime_request_service.clone()))
@@ -167,6 +177,13 @@ impl AttendanceModule {
         &self,
     ) -> Arc<crate::application::service::overtime_request_lifecycle::OvertimeLifecycleService> {
         self.overtime_request_lifecycle.clone()
+    }
+    /// The correction lifecycle service (for the composing service to wire
+    /// its approvals adapter onto).
+    pub fn attendance_correction_lifecycle(
+        &self,
+    ) -> Arc<crate::application::service::attendance_correction_lifecycle::CorrectionLifecycleService> {
+        self.attendance_correction_lifecycle.clone()
     }
     // END CUSTOM
 }
@@ -206,6 +223,10 @@ impl AttendanceModuleBuilder {
         let attendance_clock_repository = Arc::new(AttendanceClockRepository::new(db_pool.clone()));
         let attendance_clock_service = Arc::new(AttendanceClockService::with_repository(attendance_clock_repository.clone()));
 
+        // AttendanceCorrection service
+        let attendance_correction_repository = Arc::new(AttendanceCorrectionRepository::new(db_pool.clone()));
+        let attendance_correction_service = Arc::new(AttendanceCorrectionService::with_repository(attendance_correction_repository.clone()));
+
         // AttendanceSession service
         let attendance_session_repository = Arc::new(AttendanceSessionRepository::new(db_pool.clone()));
         let attendance_session_service = Arc::new(AttendanceSessionService::with_repository(attendance_session_repository.clone()));
@@ -234,11 +255,17 @@ impl AttendanceModuleBuilder {
                 db_pool.clone(),
             ),
         );
+        let attendance_correction_lifecycle = Arc::new(
+            crate::application::service::attendance_correction_lifecycle::CorrectionLifecycleService::new(
+                db_pool.clone(),
+            ),
+        );
         // END CUSTOM
 
         Ok(AttendanceModule {
             attendance_service,
             attendance_clock_service,
+            attendance_correction_service,
             attendance_session_service,
             kiosk_pin_service,
             overtime_request_service,
@@ -249,6 +276,7 @@ impl AttendanceModuleBuilder {
             db_pool,
             attendance_write_service,
             overtime_request_lifecycle,
+            attendance_correction_lifecycle,
             // END CUSTOM
         })
     }

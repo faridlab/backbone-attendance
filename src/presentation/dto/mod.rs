@@ -7,6 +7,7 @@
 
 pub mod attendance_dto;
 pub mod attendance_clock_dto;
+pub mod attendance_correction_dto;
 pub mod attendance_session_dto;
 pub mod kiosk_pin_dto;
 pub mod overtime_request_dto;
@@ -29,6 +30,14 @@ pub use attendance_clock_dto::{
     AttendanceClockResponseDto,
     AttendanceClockListResponseDto,
     AttendanceClockSummaryDto,
+};
+pub use attendance_correction_dto::{
+    CreateAttendanceCorrectionDto,
+    UpdateAttendanceCorrectionDto,
+    PatchAttendanceCorrectionDto,
+    AttendanceCorrectionResponseDto,
+    AttendanceCorrectionListResponseDto,
+    AttendanceCorrectionSummaryDto,
 };
 pub use attendance_session_dto::{
     CreateAttendanceSessionDto,

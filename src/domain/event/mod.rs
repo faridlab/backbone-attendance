@@ -6,6 +6,8 @@ pub mod attendance_events;
 pub mod attendance_event_handlers;
 pub mod attendance_clock_events;
 pub mod attendance_clock_event_handlers;
+pub mod attendance_correction_events;
+pub mod attendance_correction_event_handlers;
 pub mod attendance_session_events;
 pub mod attendance_session_event_handlers;
 pub mod kiosk_pin_events;
@@ -21,6 +23,8 @@ pub use attendance_events::{AttendanceEvent, AttendanceEventPublisher, NoopAtten
 pub use attendance_event_handlers::AttendanceEventHandler;
 pub use attendance_clock_events::{AttendanceClockEvent, AttendanceClockEventPublisher, NoopAttendanceClockEventPublisher};
 pub use attendance_clock_event_handlers::AttendanceClockEventHandler;
+pub use attendance_correction_events::{AttendanceCorrectionEvent, AttendanceCorrectionEventPublisher, NoopAttendanceCorrectionEventPublisher};
+pub use attendance_correction_event_handlers::AttendanceCorrectionEventHandler;
 pub use attendance_session_events::{AttendanceSessionEvent, AttendanceSessionEventPublisher, NoopAttendanceSessionEventPublisher};
 pub use attendance_session_event_handlers::AttendanceSessionEventHandler;
 pub use kiosk_pin_events::{KioskPinEvent, KioskPinEventPublisher, NoopKioskPinEventPublisher};

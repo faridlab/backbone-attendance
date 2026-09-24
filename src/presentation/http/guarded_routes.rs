@@ -64,6 +64,19 @@ struct IdResponse {
     id: Uuid,
 }
 
+fn correction_err_response(e: crate::application::service::attendance_correction_lifecycle::CorrectionLifecycleError) -> axum::response::Response {
+    let status = StatusCode::from_u16(e.http_status()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+    (
+        status,
+        Json(ErrorBody {
+            error: e.code(),
+            message: e.to_string(),
+            retry_after_seconds: None,
+        }),
+    )
+        .into_response()
+}
+
 fn err_response(e: AttendanceWriteError) -> axum::response::Response {
     let status = StatusCode::from_u16(e.http_status()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
     let retry_after_seconds = match &e {
@@ -322,9 +335,84 @@ async fn revoke_pin(
 
 // ── composition ────────────────────────────────────────────────────────────────
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SubmitCorrectionBody {
+    session_id: Uuid,
+    employee_id: Uuid,
+    check_in: chrono::DateTime<chrono::Utc>,
+    #[serde(default)]
+    check_out: Option<chrono::DateTime<chrono::Utc>>,
+    reason: String,
+}
+
+async fn submit_correction(
+    State(svc): State<Arc<crate::application::service::attendance_correction_lifecycle::CorrectionLifecycleService>>,
+    _org: OrgContext,
+    Json(b): Json<SubmitCorrectionBody>,
+) -> axum::response::Response {
+    match svc
+        .submit_correction(b.session_id, b.employee_id, b.check_in, b.check_out, &b.reason)
+        .await
+    {
+        Ok((id, approval_request_id)) => (
+            StatusCode::CREATED,
+            Json(serde_json::json!({
+                "id": id,
+                "approvalRequestId": approval_request_id,
+                "status": if approval_request_id.is_some() { "pending" } else { "untracked" },
+            })),
+        )
+            .into_response(),
+        Err(e) => correction_err_response(e),
+    }
+}
+
+async fn apply_correction(
+    State(svc): State<Arc<crate::application::service::attendance_correction_lifecycle::CorrectionLifecycleService>>,
+    _org: OrgContext,
+    Path(correction_id): Path<Uuid>,
+) -> axum::response::Response {
+    match svc.apply_correction(correction_id).await {
+        Ok(()) => (StatusCode::NO_CONTENT).into_response(),
+        Err(e) => correction_err_response(e),
+    }
+}
+
+async fn reject_correction(
+    State(svc): State<Arc<crate::application::service::attendance_correction_lifecycle::CorrectionLifecycleService>>,
+    _org: OrgContext,
+    Path(correction_id): Path<Uuid>,
+) -> axum::response::Response {
+    match svc.reject_correction(correction_id).await {
+        Ok(()) => (StatusCode::NO_CONTENT).into_response(),
+        Err(e) => correction_err_response(e),
+    }
+}
+
+async fn cancel_correction(
+    State(svc): State<Arc<crate::application::service::attendance_correction_lifecycle::CorrectionLifecycleService>>,
+    _org: OrgContext,
+    Path(correction_id): Path<Uuid>,
+) -> axum::response::Response {
+    match svc.cancel_correction(correction_id).await {
+        Ok(()) => (StatusCode::NO_CONTENT).into_response(),
+        Err(e) => correction_err_response(e),
+    }
+}
+
 /// Build the guarded attendance router: validated writes + safe reads, NO generic CRUD mutation
 /// and NO kiosk_pin reads. Mount under the host's authenticated (org auth) tree.
 pub fn create_guarded_attendance_routes(m: &AttendanceModule) -> Router {
+    // The correction lifecycle: submit files into the approvals engine;
+    // apply/reject are the verdict-gated writers; cancel withdraws.
+    let corrections = Router::new()
+        .route("/attendance/corrections", post(submit_correction))
+        .route("/attendance/corrections/:correction_id/apply", post(apply_correction))
+        .route("/attendance/corrections/:correction_id/reject", post(reject_correction))
+        .route("/attendance/corrections/:correction_id/cancel", post(cancel_correction))
+        .with_state(m.attendance_correction_lifecycle.clone());
+
     let writes = Router::new()
         .route("/attendance/kiosk/punch", post(kiosk_punch))
         .route("/attendance/punch", post(punch))
@@ -337,6 +425,7 @@ pub fn create_guarded_attendance_routes(m: &AttendanceModule) -> Router {
         .route("/attendance/kiosk/pins/unlock", post(unlock_pin))
         .route("/attendance/kiosk/pins/:employee_id", delete(revoke_pin))
         .with_state(m.attendance_write_service.clone())
+        .merge(corrections)
         // The shift/roster masters: generated CRUD carrying their own state,
         // merged after the write lane so the state types do not mix. The
         // schedule resolve read sits beside them (it shares the write

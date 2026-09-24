@@ -14,6 +14,7 @@ use std::env;
 // Import seeders
 use backbone_attendance::seeders::SeedAttendanceSeeder;
 use backbone_attendance::seeders::SeedAttendanceClockSeeder;
+use backbone_attendance::seeders::SeedAttendanceCorrectionSeeder;
 use backbone_attendance::seeders::SeedAttendanceSessionSeeder;
 use backbone_attendance::seeders::SeedKioskPinSeeder;
 use backbone_attendance::seeders::SeedOvertimeRequestSeeder;
@@ -49,6 +50,7 @@ async fn main() -> Result<()> {
     let mut seeders: Vec<Box<dyn Seeder + Send + Sync>> = Vec::new();
     seeders.push(Box::new(SeedAttendanceSeeder::new()));
     seeders.push(Box::new(SeedAttendanceClockSeeder::new()));
+    seeders.push(Box::new(SeedAttendanceCorrectionSeeder::new()));
     seeders.push(Box::new(SeedAttendanceSessionSeeder::new()));
     seeders.push(Box::new(SeedKioskPinSeeder::new()));
     seeders.push(Box::new(SeedOvertimeRequestSeeder::new()));

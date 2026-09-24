@@ -9,6 +9,7 @@ pub use error::{ServiceError, ServiceResult};
 
 pub mod attendance_service;
 pub mod attendance_clock_service;
+pub mod attendance_correction_service;
 pub mod attendance_session_service;
 pub mod kiosk_pin_service;
 pub mod overtime_request_service;
@@ -18,6 +19,8 @@ pub mod shift_service;
 // <<< CUSTOM
 pub mod overtime_approvals_port;
 pub mod overtime_request_lifecycle;
+pub mod correction_approvals_port;
+pub mod attendance_correction_lifecycle;
 // Hand-written `AttendanceQueryService` impl (user-owned file). Standard lookups delegate to the
 // GenericCrudService aliases above; the `present_days` read-port delegates to the repo's SQL.
 pub mod attendance_query_service;
@@ -27,6 +30,7 @@ pub mod attendance_write_service;
 
 pub use attendance_service::AttendanceService;
 pub use attendance_clock_service::AttendanceClockService;
+pub use attendance_correction_service::AttendanceCorrectionService;
 pub use attendance_session_service::AttendanceSessionService;
 pub use kiosk_pin_service::KioskPinService;
 pub use overtime_request_service::OvertimeRequestService;

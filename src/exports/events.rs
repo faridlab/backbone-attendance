@@ -65,6 +65,33 @@ pub struct AttendanceClockDeletedEvent {
 }
 
 // ============================================================================
+// ATTENDANCECORRECTION EVENTS
+// ============================================================================
+
+/// Event published when a AttendanceCorrection is created
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AttendanceCorrectionCreatedEvent {
+    pub id: AttendanceCorrectionId,
+    pub data: AttendanceCorrectionDto,
+    pub occurred_at: DateTime<Utc>,
+}
+
+/// Event published when a AttendanceCorrection is updated
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AttendanceCorrectionUpdatedEvent {
+    pub id: AttendanceCorrectionId,
+    pub data: AttendanceCorrectionDto,
+    pub occurred_at: DateTime<Utc>,
+}
+
+/// Event published when a AttendanceCorrection is deleted
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AttendanceCorrectionDeletedEvent {
+    pub id: AttendanceCorrectionId,
+    pub occurred_at: DateTime<Utc>,
+}
+
+// ============================================================================
 // ATTENDANCESESSION EVENTS
 // ============================================================================
 
@@ -213,6 +240,9 @@ pub enum AttendanceEvent {
     AttendanceClockCreated(AttendanceClockCreatedEvent),
     AttendanceClockUpdated(AttendanceClockUpdatedEvent),
     AttendanceClockDeleted(AttendanceClockDeletedEvent),
+    AttendanceCorrectionCreated(AttendanceCorrectionCreatedEvent),
+    AttendanceCorrectionUpdated(AttendanceCorrectionUpdatedEvent),
+    AttendanceCorrectionDeleted(AttendanceCorrectionDeletedEvent),
     AttendanceSessionCreated(AttendanceSessionCreatedEvent),
     AttendanceSessionUpdated(AttendanceSessionUpdatedEvent),
     AttendanceSessionDeleted(AttendanceSessionDeletedEvent),

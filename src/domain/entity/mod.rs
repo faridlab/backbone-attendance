@@ -4,12 +4,14 @@
 
 pub mod attendance;
 pub mod attendance_clock;
+pub mod attendance_correction;
 pub mod attendance_session;
 pub mod kiosk_pin;
 pub mod overtime_request;
 pub mod roster_entry;
 pub mod shift;
 pub mod punch_direction;
+pub mod correction_status;
 pub mod punch_source;
 pub mod overtime_request_status;
 
@@ -20,6 +22,9 @@ pub use attendance::AttendanceId;
 pub use attendance_clock::AttendanceClock;
 pub use attendance_clock::AttendanceClockBuilder;
 pub use attendance_clock::AttendanceClockId;
+pub use attendance_correction::AttendanceCorrection;
+pub use attendance_correction::AttendanceCorrectionBuilder;
+pub use attendance_correction::AttendanceCorrectionId;
 pub use attendance_session::AttendanceSession;
 pub use attendance_session::AttendanceSessionBuilder;
 pub use attendance_session::AttendanceSessionId;
@@ -36,6 +41,7 @@ pub use shift::Shift;
 pub use shift::ShiftBuilder;
 pub use shift::ShiftId;
 pub use punch_direction::PunchDirection;
+pub use correction_status::CorrectionStatus;
 pub use punch_source::PunchSource;
 pub use overtime_request_status::OvertimeRequestStatus;
 

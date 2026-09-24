@@ -132,6 +132,68 @@ pub struct AttendanceClockRef {
 }
 
 // ============================================================================
+// ATTENDANCECORRECTION TYPES
+// ============================================================================
+
+/// Type-safe ID for AttendanceCorrection
+///
+/// Use this instead of raw Uuid for type safety across modules.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct AttendanceCorrectionId(pub Uuid);
+
+impl AttendanceCorrectionId {
+    pub fn new(id: Uuid) -> Self {
+        Self(id)
+    }
+
+    pub fn into_inner(self) -> Uuid {
+        self.0
+    }
+}
+
+impl From<Uuid> for AttendanceCorrectionId {
+    fn from(id: Uuid) -> Self {
+        Self(id)
+    }
+}
+
+impl From<AttendanceCorrectionId> for Uuid {
+    fn from(id: AttendanceCorrectionId) -> Self {
+        id.0
+    }
+}
+
+/// Data transfer object for AttendanceCorrection
+///
+/// This is the public representation of AttendanceCorrection for other modules.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AttendanceCorrectionDto {
+    pub id: AttendanceCorrectionId,
+    pub session_id: Uuid,
+    pub employee_id: Uuid,
+    pub check_in: DateTime<Utc>,
+    pub check_out: Option<DateTime<Utc>>,
+    pub reason: String,
+    pub status: CorrectionStatus,
+    pub approval_request_id: Option<Uuid>,
+    pub submitted_at: DateTime<Utc>,
+    pub metadata: serde_json::Value,
+}
+
+/// Summary view of AttendanceCorrection for list displays
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AttendanceCorrectionSummary {
+    pub id: AttendanceCorrectionId,
+    pub status: CorrectionStatus,
+}
+
+/// Reference to AttendanceCorrection for foreign key relationships
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AttendanceCorrectionRef {
+    pub id: AttendanceCorrectionId,
+}
+
+// ============================================================================
 // ATTENDANCESESSION TYPES
 // ============================================================================
 

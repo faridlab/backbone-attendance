@@ -15,6 +15,8 @@ tags:
     description: Attendance management endpoints
   - name: AttendanceClocks
     description: AttendanceClock management endpoints
+  - name: AttendanceCorrections
+    description: AttendanceCorrection management endpoints
   - name: AttendanceSessions
     description: AttendanceSession management endpoints
   - name: KioskPins
@@ -745,6 +747,372 @@ paths:
         - AttendanceClocks
       summary: Bulk permanently-delete AttendanceClocks from trash by ids (atomic)
       operationId: bulkPermanentDeleteAttendanceClocks
+      requestBody:
+        $ref: '#/components/requestBodies/BatchIds'
+      responses:
+        '200':
+          description: Permanently deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  permanently_deleted: { type: integer }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/attendance/attendance_corrections:
+    get:
+      tags:
+        - AttendanceCorrections
+      summary: List AttendanceCorrections
+      description: Get a paginated list of AttendanceCorrections with optional filtering and sorting
+      operationId: listAttendanceCorrections
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+        - $ref: '#/components/parameters/SortByParam'
+        - $ref: '#/components/parameters/SortOrderParam'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceCorrectionList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags:
+        - AttendanceCorrections
+      summary: Create AttendanceCorrection
+      description: Create a new AttendanceCorrection
+      operationId: createAttendanceCorrection
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAttendanceCorrectionRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceCorrection'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/attendance/attendance_corrections/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+
+    get:
+      tags:
+        - AttendanceCorrections
+      summary: Get AttendanceCorrection by ID
+      operationId: getAttendanceCorrection
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceCorrection'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags:
+        - AttendanceCorrections
+      summary: Update AttendanceCorrection (full)
+      operationId: updateAttendanceCorrection
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAttendanceCorrectionRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceCorrection'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      tags:
+        - AttendanceCorrections
+      summary: Update AttendanceCorrection (partial)
+      operationId: patchAttendanceCorrection
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchAttendanceCorrectionRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceCorrection'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags:
+        - AttendanceCorrections
+      summary: Delete AttendanceCorrection (soft)
+      operationId: deleteAttendanceCorrection
+      responses:
+        '204':
+          description: Deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/attendance/attendance_corrections/bulk:
+    post:
+      tags:
+        - AttendanceCorrections
+      summary: Bulk create AttendanceCorrections
+      operationId: bulkCreateAttendanceCorrections
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/CreateAttendanceCorrectionRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AttendanceCorrection'
+    put:
+      tags:
+        - AttendanceCorrections
+      summary: Bulk update AttendanceCorrections (full, atomic)
+      operationId: bulkUpdateAttendanceCorrections
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                allOf:
+                  - type: object
+                    required: [id]
+                    properties:
+                      id:
+                        type: string
+                  - $ref: '#/components/schemas/UpdateAttendanceCorrectionRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceCorrectionBulkResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+    patch:
+      tags:
+        - AttendanceCorrections
+      summary: Bulk partial-update AttendanceCorrections (atomic)
+      operationId: bulkPatchAttendanceCorrections
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [ids, patch]
+                  properties:
+                    ids:
+                      type: array
+                      items: { type: string }
+                    patch:
+                      type: object
+                      additionalProperties: true
+                - type: object
+                  required: [items]
+                  properties:
+                    items:
+                      type: array
+                      items:
+                        type: object
+                        required: [id, patch]
+                        properties:
+                          id: { type: string }
+                          patch: { type: object, additionalProperties: true }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceCorrectionBulkResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/attendance/attendance_corrections/upsert:
+    post:
+      tags:
+        - AttendanceCorrections
+      summary: Upsert AttendanceCorrection
+      operationId: upsertAttendanceCorrection
+      parameters:
+        - name: key_field
+          in: query
+          schema:
+            type: string
+        - name: key_value
+          in: query
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAttendanceCorrectionRequest'
+      responses:
+        '200':
+          description: Upserted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceCorrection'
+
+  /api/v1/attendance/attendance_corrections/trash:
+    get:
+      tags:
+        - AttendanceCorrections
+      summary: List deleted AttendanceCorrections
+      operationId: listDeletedAttendanceCorrections
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceCorrectionList'
+
+  /api/v1/attendance/attendance_corrections/{id}/restore:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+    post:
+      tags:
+        - AttendanceCorrections
+      summary: Restore deleted AttendanceCorrection
+      operationId: restoreAttendanceCorrection
+      responses:
+        '200':
+          description: Restored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceCorrection'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/attendance/attendance_corrections/empty:
+    delete:
+      tags:
+        - AttendanceCorrections
+      summary: Empty trash for AttendanceCorrections
+      operationId: emptyTrashAttendanceCorrections
+      responses:
+        '200':
+          description: Trash emptied
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted_count:
+                    type: integer
+
+  /api/v1/attendance/attendance_corrections/delete/bulk:
+    post:
+      tags:
+        - AttendanceCorrections
+      summary: Bulk soft-delete AttendanceCorrections by ids (atomic)
+      operationId: bulkDeleteAttendanceCorrections
+      requestBody:
+        $ref: '#/components/requestBodies/BatchIds'
+      responses:
+        '200':
+          description: Soft-deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  soft_deleted: { type: integer }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/attendance/attendance_corrections/restore/bulk:
+    post:
+      tags:
+        - AttendanceCorrections
+      summary: Bulk restore AttendanceCorrections by ids (atomic)
+      operationId: bulkRestoreAttendanceCorrections
+      requestBody:
+        $ref: '#/components/requestBodies/BatchIds'
+      responses:
+        '200':
+          description: Restored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceCorrectionBulkResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/attendance/attendance_corrections/restore/all:
+    post:
+      tags:
+        - AttendanceCorrections
+      summary: Restore all soft-deleted AttendanceCorrections
+      operationId: restoreAllAttendanceCorrections
+      responses:
+        '200':
+          description: Restored
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  restored: { type: integer }
+
+  /api/v1/attendance/attendance_corrections/trash/bulk:
+    delete:
+      tags:
+        - AttendanceCorrections
+      summary: Bulk permanently-delete AttendanceCorrections from trash by ids (atomic)
+      operationId: bulkPermanentDeleteAttendanceCorrections
       requestBody:
         $ref: '#/components/requestBodies/BatchIds'
       responses:
@@ -2894,6 +3262,177 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AttendanceClock'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+
+    AttendanceCorrection:
+      type: object
+      required:
+        - id
+        - session_id
+        - employee_id
+        - check_in
+        - reason
+        - status
+        - submitted_at
+        - metadata
+      properties:
+        id:
+          type: string
+          format: uuid
+        session_id:
+          type: string
+          format: uuid
+        employee_id:
+          type: string
+          format: uuid
+        check_in:
+          type: string
+          format: date-time
+        check_out:
+          nullable: true
+          type: string
+          format: date-time
+        reason:
+          type: string
+        status:
+          type: string
+        approval_request_id:
+          nullable: true
+          type: string
+          format: uuid
+        submitted_at:
+          type: string
+          format: date-time
+        metadata:
+          type: object
+
+    AttendanceCorrectionBulkResult:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttendanceCorrection'
+        total: { type: integer }
+        failed: { type: integer }
+        errors:
+          type: array
+          items: { type: string }
+
+    CreateAttendanceCorrectionRequest:
+      type: object
+      required:
+        - session_id
+        - employee_id
+        - check_in
+        - reason
+        - status
+        - submitted_at
+        - metadata
+      properties:
+        session_id:
+          type: string
+          format: uuid
+        employee_id:
+          type: string
+          format: uuid
+        check_in:
+          type: string
+          format: date-time
+        check_out:
+          nullable: true
+          type: string
+          format: date-time
+        reason:
+          type: string
+        status:
+          type: string
+        approval_request_id:
+          nullable: true
+          type: string
+          format: uuid
+        submitted_at:
+          type: string
+          format: date-time
+        metadata:
+          type: object
+
+    UpdateAttendanceCorrectionRequest:
+      type: object
+      required:
+        - session_id
+        - employee_id
+        - check_in
+        - reason
+        - status
+        - submitted_at
+        - metadata
+      properties:
+        session_id:
+          type: string
+          format: uuid
+        employee_id:
+          type: string
+          format: uuid
+        check_in:
+          type: string
+          format: date-time
+        check_out:
+          nullable: true
+          type: string
+          format: date-time
+        reason:
+          type: string
+        status:
+          type: string
+        approval_request_id:
+          nullable: true
+          type: string
+          format: uuid
+        submitted_at:
+          type: string
+          format: date-time
+        metadata:
+          type: object
+
+    PatchAttendanceCorrectionRequest:
+      type: object
+      properties:
+        session_id:
+          type: string
+          format: uuid
+        employee_id:
+          type: string
+          format: uuid
+        check_in:
+          type: string
+          format: date-time
+        check_out:
+          nullable: true
+          type: string
+          format: date-time
+        reason:
+          type: string
+        status:
+          type: string
+        approval_request_id:
+          nullable: true
+          type: string
+          format: uuid
+        submitted_at:
+          type: string
+          format: date-time
+        metadata:
+          type: object
+
+    AttendanceCorrectionList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttendanceCorrection'
         meta:
           $ref: '#/components/schemas/PaginationMeta'
 

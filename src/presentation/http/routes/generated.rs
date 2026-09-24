@@ -11,6 +11,7 @@ use std::sync::Arc;
 use super::{
     attendance_handler::create_attendance_routes,
     attendance_clock_handler::create_attendance_clock_routes,
+    attendance_correction_handler::create_attendance_correction_routes,
     attendance_session_handler::create_attendance_session_routes,
     kiosk_pin_handler::create_kiosk_pin_routes,
     overtime_request_handler::create_overtime_request_routes,
@@ -21,6 +22,7 @@ use super::{
 use crate::application::service::{
     AttendanceService,
     AttendanceClockService,
+    AttendanceCorrectionService,
     AttendanceSessionService,
     KioskPinService,
     OvertimeRequestService,
@@ -32,6 +34,7 @@ use crate::application::service::{
 pub struct HttpServices {
     pub attendance: Arc<AttendanceService>,
     pub attendance_clock: Arc<AttendanceClockService>,
+    pub attendance_correction: Arc<AttendanceCorrectionService>,
     pub attendance_session: Arc<AttendanceSessionService>,
     pub kiosk_pin: Arc<KioskPinService>,
     pub overtime_request: Arc<OvertimeRequestService>,
@@ -60,6 +63,8 @@ pub fn configure_routes(services: HttpServices) -> Router {
         .merge(create_attendance_routes(services.attendance))
         // AttendanceClock routes (12 Backbone endpoints)
         .merge(create_attendance_clock_routes(services.attendance_clock))
+        // AttendanceCorrection routes (12 Backbone endpoints)
+        .merge(create_attendance_correction_routes(services.attendance_correction))
         // AttendanceSession routes (12 Backbone endpoints)
         .merge(create_attendance_session_routes(services.attendance_session))
         // KioskPin routes (12 Backbone endpoints)
@@ -82,6 +87,10 @@ pub mod individual {
 
     pub fn attendance_clock_routes(service: Arc<AttendanceClockService>) -> Router {
         create_attendance_clock_routes(service)
+    }
+
+    pub fn attendance_correction_routes(service: Arc<AttendanceCorrectionService>) -> Router {
+        create_attendance_correction_routes(service)
     }
 
     pub fn attendance_session_routes(service: Arc<AttendanceSessionService>) -> Router {

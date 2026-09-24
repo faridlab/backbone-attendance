@@ -7,6 +7,7 @@ pub use shared_types::{ValidationError, ValidationErrors, ValidationResult, Enti
 
 pub mod attendance_validator;
 pub mod attendance_clock_validator;
+pub mod attendance_correction_validator;
 pub mod attendance_session_validator;
 pub mod kiosk_pin_validator;
 pub mod overtime_request_validator;
@@ -15,6 +16,7 @@ pub mod shift_validator;
 
 pub use attendance_validator::{AttendanceValidator, attendance_validator};
 pub use attendance_clock_validator::{AttendanceClockValidator, attendance_clock_validator};
+pub use attendance_correction_validator::{AttendanceCorrectionValidator, attendance_correction_validator};
 pub use attendance_session_validator::{AttendanceSessionValidator, attendance_session_validator};
 pub use kiosk_pin_validator::{KioskPinValidator, kiosk_pin_validator};
 pub use overtime_request_validator::{OvertimeRequestValidator, overtime_request_validator};

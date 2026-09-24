@@ -18,3 +18,6 @@
 - overtime_request_seed
 - roster_entry_seed
 - shift_seed
+
+# Newly added seeds (preserve manual order above):
+- attendance_correction_seed

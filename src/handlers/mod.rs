@@ -11,6 +11,7 @@ use std::sync::Arc;
 // Import all services
 use crate::application::service::AttendanceService;
 use crate::application::service::AttendanceClockService;
+use crate::application::service::AttendanceCorrectionService;
 use crate::application::service::AttendanceSessionService;
 use crate::application::service::KioskPinService;
 use crate::application::service::OvertimeRequestService;
@@ -39,6 +40,8 @@ pub struct AppState {
     pub attendance_service: Arc<AttendanceService>,
     /// AttendanceClock service
     pub attendance_clock_service: Arc<AttendanceClockService>,
+    /// AttendanceCorrection service
+    pub attendance_correction_service: Arc<AttendanceCorrectionService>,
     /// AttendanceSession service
     pub attendance_session_service: Arc<AttendanceSessionService>,
     /// KioskPin service
@@ -56,6 +59,7 @@ impl AppState {
     pub fn new(
         attendance_service: Arc<AttendanceService>,
         attendance_clock_service: Arc<AttendanceClockService>,
+        attendance_correction_service: Arc<AttendanceCorrectionService>,
         attendance_session_service: Arc<AttendanceSessionService>,
         kiosk_pin_service: Arc<KioskPinService>,
         overtime_request_service: Arc<OvertimeRequestService>,
@@ -65,6 +69,7 @@ impl AppState {
         Self {
             attendance_service,
             attendance_clock_service,
+            attendance_correction_service,
             attendance_session_service,
             kiosk_pin_service,
             overtime_request_service,
@@ -78,6 +83,7 @@ impl AppState {
         Self {
             attendance_service: module.attendance_service.clone(),
             attendance_clock_service: module.attendance_clock_service.clone(),
+            attendance_correction_service: module.attendance_correction_service.clone(),
             attendance_session_service: module.attendance_session_service.clone(),
             kiosk_pin_service: module.kiosk_pin_service.clone(),
             overtime_request_service: module.overtime_request_service.clone(),
@@ -94,6 +100,7 @@ impl AppState {
 pub struct AppStateBuilder {
     attendance_service: Option<Arc<AttendanceService>>,
     attendance_clock_service: Option<Arc<AttendanceClockService>>,
+    attendance_correction_service: Option<Arc<AttendanceCorrectionService>>,
     attendance_session_service: Option<Arc<AttendanceSessionService>>,
     kiosk_pin_service: Option<Arc<KioskPinService>>,
     overtime_request_service: Option<Arc<OvertimeRequestService>>,
@@ -116,6 +123,12 @@ impl AppStateBuilder {
     /// Set the AttendanceClock service.
     pub fn with_attendance_clock_service(mut self, service: Arc<AttendanceClockService>) -> Self {
         self.attendance_clock_service = Some(service);
+        self
+    }
+
+    /// Set the AttendanceCorrection service.
+    pub fn with_attendance_correction_service(mut self, service: Arc<AttendanceCorrectionService>) -> Self {
+        self.attendance_correction_service = Some(service);
         self
     }
 
@@ -158,6 +171,7 @@ impl AppStateBuilder {
         AppState {
             attendance_service: self.attendance_service.expect("attendance_service is required"),
             attendance_clock_service: self.attendance_clock_service.expect("attendance_clock_service is required"),
+            attendance_correction_service: self.attendance_correction_service.expect("attendance_correction_service is required"),
             attendance_session_service: self.attendance_session_service.expect("attendance_session_service is required"),
             kiosk_pin_service: self.kiosk_pin_service.expect("kiosk_pin_service is required"),
             overtime_request_service: self.overtime_request_service.expect("overtime_request_service is required"),

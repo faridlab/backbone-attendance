@@ -230,11 +230,6 @@ impl backbone_orm::EntityRepoMeta for AttendanceSession {
         m.insert("id".to_string(), "uuid".to_string());
         m.insert("employee_id".to_string(), "uuid".to_string());
         m.insert("source".to_string(), "punch_source".to_string());
-        // Temporal cast hints: without them a filter like date[eq]=YYYY-MM-DD
-        // binds text and Postgres has no implicit `date = text` operator.
-        m.insert("date".to_string(), "date".to_string());
-        m.insert("check_in".to_string(), "timestamptz".to_string());
-        m.insert("check_out".to_string(), "timestamptz".to_string());
         m
     }
     fn search_fields() -> &'static [&'static str] {

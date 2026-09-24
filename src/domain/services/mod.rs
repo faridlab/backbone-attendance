@@ -4,6 +4,7 @@
 
 pub mod attendance_domain_policy;
 pub mod attendance_clock_domain_policy;
+pub mod attendance_correction_domain_policy;
 pub mod attendance_session_domain_policy;
 pub mod kiosk_pin_domain_policy;
 pub mod overtime_request_domain_policy;
@@ -12,6 +13,7 @@ pub mod shift_domain_policy;
 
 pub use attendance_domain_policy::AttendanceDomainPolicy;
 pub use attendance_clock_domain_policy::AttendanceClockDomainPolicy;
+pub use attendance_correction_domain_policy::AttendanceCorrectionDomainPolicy;
 pub use attendance_session_domain_policy::AttendanceSessionDomainPolicy;
 pub use kiosk_pin_domain_policy::KioskPinDomainPolicy;
 pub use overtime_request_domain_policy::OvertimeRequestDomainPolicy;

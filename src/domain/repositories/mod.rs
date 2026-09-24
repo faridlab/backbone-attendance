@@ -8,6 +8,7 @@
 
 pub mod attendance_repository;
 pub mod attendance_clock_repository;
+pub mod attendance_correction_repository;
 pub mod attendance_session_repository;
 pub mod kiosk_pin_repository;
 pub mod overtime_request_repository;
@@ -26,6 +27,12 @@ pub use attendance_clock_repository::{
     AttendanceClockPaginationParams,
     AttendanceClockPaginatedResult,
     AttendanceClockFilter,
+};
+pub use attendance_correction_repository::{
+    AttendanceCorrectionRepository,
+    AttendanceCorrectionPaginationParams,
+    AttendanceCorrectionPaginatedResult,
+    AttendanceCorrectionFilter,
 };
 pub use attendance_session_repository::{
     AttendanceSessionRepository,

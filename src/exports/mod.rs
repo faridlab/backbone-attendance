@@ -33,6 +33,9 @@ pub use events::*;
 /// - `AttendanceClockDto` - Data transfer object for AttendanceClock
 /// - `AttendanceClockSummary` - Summary view of AttendanceClock
 /// - `AttendanceClockId` - Type-safe ID wrapper
+/// - `AttendanceCorrectionDto` - Data transfer object for AttendanceCorrection
+/// - `AttendanceCorrectionSummary` - Summary view of AttendanceCorrection
+/// - `AttendanceCorrectionId` - Type-safe ID wrapper
 /// - `AttendanceSessionDto` - Data transfer object for AttendanceSession
 /// - `AttendanceSessionSummary` - Summary view of AttendanceSession
 /// - `AttendanceSessionId` - Type-safe ID wrapper
@@ -56,6 +59,9 @@ pub use events::*;
 /// - `AttendanceClockCreatedEvent` - Published when AttendanceClock is created
 /// - `AttendanceClockUpdatedEvent` - Published when AttendanceClock is updated
 /// - `AttendanceClockDeletedEvent` - Published when AttendanceClock is deleted
+/// - `AttendanceCorrectionCreatedEvent` - Published when AttendanceCorrection is created
+/// - `AttendanceCorrectionUpdatedEvent` - Published when AttendanceCorrection is updated
+/// - `AttendanceCorrectionDeletedEvent` - Published when AttendanceCorrection is deleted
 /// - `AttendanceSessionCreatedEvent` - Published when AttendanceSession is created
 /// - `AttendanceSessionUpdatedEvent` - Published when AttendanceSession is updated
 /// - `AttendanceSessionDeletedEvent` - Published when AttendanceSession is deleted

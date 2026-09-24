@@ -39,6 +39,20 @@ async fn test_attendance_clock_api() {
 }
 
 #[tokio::test]
+async fn test_attendance_correction_api() {
+    let mut test = AttendanceCorrectionApiTest::new();
+    let results = test.run_all().await;
+
+    let failed: Vec<_> = results.iter().filter(|r| !r.success).collect();
+    if !failed.is_empty() {
+        for f in &failed {
+            eprintln!("FAILED: {} - {}", f.test_name, f.details);
+        }
+        panic!("{} tests failed", failed.len());
+    }
+}
+
+#[tokio::test]
 async fn test_attendance_session_api() {
     let mut test = AttendanceSessionApiTest::new();
     let results = test.run_all().await;

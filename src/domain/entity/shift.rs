@@ -232,10 +232,6 @@ impl backbone_orm::EntityRepoMeta for Shift {
     fn column_types() -> std::collections::HashMap<String, String> {
         let mut m = std::collections::HashMap::new();
         m.insert("id".to_string(), "uuid".to_string());
-        // Temporal cast hints: without them a filter binds text and Postgres
-        // has no implicit `time = text` operator.
-        m.insert("start_time".to_string(), "time".to_string());
-        m.insert("end_time".to_string(), "time".to_string());
         m
     }
     fn search_fields() -> &'static [&'static str] {

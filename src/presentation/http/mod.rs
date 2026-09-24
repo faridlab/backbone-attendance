@@ -7,6 +7,7 @@
 
 pub mod attendance_handler;
 pub mod attendance_clock_handler;
+pub mod attendance_correction_handler;
 pub mod attendance_session_handler;
 pub mod kiosk_pin_handler;
 pub mod overtime_request_handler;
@@ -22,6 +23,7 @@ pub mod guarded_routes;
 // Re-exports
 pub use attendance_handler::{create_attendance_routes, create_attendance_read_routes, create_attendance_write_routes};
 pub use attendance_clock_handler::{create_attendance_clock_routes, create_attendance_clock_read_routes, create_attendance_clock_write_routes};
+pub use attendance_correction_handler::{create_attendance_correction_routes, create_attendance_correction_read_routes, create_attendance_correction_write_routes};
 pub use attendance_session_handler::{create_attendance_session_routes, create_attendance_session_read_routes, create_attendance_session_write_routes};
 pub use kiosk_pin_handler::{create_kiosk_pin_routes, create_kiosk_pin_read_routes, create_kiosk_pin_write_routes};
 pub use overtime_request_handler::{create_overtime_request_routes, create_overtime_request_read_routes, create_overtime_request_write_routes};
