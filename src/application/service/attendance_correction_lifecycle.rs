@@ -225,13 +225,20 @@ impl CorrectionLifecycleService {
             .await
             .map_err(|e| CorrectionLifecycleError::Seam(e.to_string()))?;
 
+        // The status flip rides its own scoped tx — a bare pool
+        // statement runs unfenced and the row is simply not there.
+        let mut tx = self.pool.begin().await?;
+        if let Some(scope) = backbone_orm::org_scope::current_org_scope() {
+            backbone_orm::org_scope::bind_org_scope_on(&mut tx, &scope).await?;
+        }
         sqlx::query(
             "UPDATE attendance.attendance_corrections SET status = 'applied' \
              WHERE id = $1 AND status = 'pending'",
         )
         .bind(correction_id)
-        .execute(&self.pool)
+        .execute(&mut *tx)
         .await?;
+        tx.commit().await?;
         let _ = employee_id;
         Ok(())
     }
@@ -243,13 +250,20 @@ impl CorrectionLifecycleService {
     ) -> Result<(), CorrectionLifecycleError> {
         let row = self.pending_row(correction_id).await?;
         let _ = row;
+        // The status flip rides its own scoped tx — a bare pool
+        // statement runs unfenced and the row is simply not there.
+        let mut tx = self.pool.begin().await?;
+        if let Some(scope) = backbone_orm::org_scope::current_org_scope() {
+            backbone_orm::org_scope::bind_org_scope_on(&mut tx, &scope).await?;
+        }
         sqlx::query(
             "UPDATE attendance.attendance_corrections SET status = 'rejected' \
              WHERE id = $1 AND status = 'pending'",
         )
         .bind(correction_id)
-        .execute(&self.pool)
+        .execute(&mut *tx)
         .await?;
+        tx.commit().await?;
         Ok(())
     }
 
@@ -259,13 +273,20 @@ impl CorrectionLifecycleService {
         correction_id: Uuid,
     ) -> Result<(), CorrectionLifecycleError> {
         self.pending_row(correction_id).await?;
+        // The status flip rides its own scoped tx — a bare pool
+        // statement runs unfenced and the row is simply not there.
+        let mut tx = self.pool.begin().await?;
+        if let Some(scope) = backbone_orm::org_scope::current_org_scope() {
+            backbone_orm::org_scope::bind_org_scope_on(&mut tx, &scope).await?;
+        }
         sqlx::query(
             "UPDATE attendance.attendance_corrections SET status = 'cancelled' \
              WHERE id = $1 AND status = 'pending'",
         )
         .bind(correction_id)
-        .execute(&self.pool)
+        .execute(&mut *tx)
         .await?;
+        tx.commit().await?;
         Ok(())
     }
 
