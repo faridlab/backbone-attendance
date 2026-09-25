@@ -28,7 +28,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use axum::{
-    extract::{Path, State},
+    extract::{Extension, Path, Query, State},
     http::StatusCode,
     response::IntoResponse,
     routing::{delete, get, post},
@@ -286,6 +286,65 @@ async fn correct_session(
     }
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PinListQuery {
+    #[serde(default)]
+    employee_id: Option<Uuid>,
+    #[serde(default)]
+    limit: Option<i64>,
+}
+
+/// The live kiosk pins: newest issue first, optionally one employee's.
+async fn list_pins(
+    _org: OrgContext,
+    Extension(pool): Extension<backbone_orm::PgPool>,
+    Query(q): Query<PinListQuery>,
+) -> axum::response::Response {
+    use axum::http::StatusCode;
+    use axum::Json;
+    let limit = q.limit.unwrap_or(100).clamp(1, 500);
+    let rows = match backbone_orm::company_scope::fetch_all_rows_scoped(
+        &pool,
+        sqlx::query(
+            r#"SELECT id, employee_id, badge_code, expires_at, locked_until,
+                      (metadata->>'created_at') AS created_at
+                 FROM attendance.kiosk_pins
+                WHERE (metadata->>'deleted_at') IS NULL
+                  AND ($1::uuid IS NULL OR employee_id = $1)
+                ORDER BY (metadata->>'created_at') DESC NULLS LAST
+                LIMIT $2"#,
+        )
+        .bind(q.employee_id)
+        .bind(limit),
+    )
+    .await
+    {
+        Ok(rows) => rows,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({ "error": "pins_unavailable", "message": e.to_string() })),
+            )
+                .into_response()
+        }
+    };
+    use sqlx::Row;
+    let data: Vec<serde_json::Value> = rows
+        .iter()
+        .map(|r| {
+            serde_json::json!({
+                "id": r.get::<Uuid, _>("id"),
+                "employeeId": r.get::<Uuid, _>("employee_id"),
+                "badgeCode": r.get::<String, _>("badge_code"),
+                "expiresAt": r.get::<Option<chrono::DateTime<chrono::Utc>>, _>("expires_at"),
+                "lockedUntil": r.get::<Option<chrono::DateTime<chrono::Utc>>, _>("locked_until"),
+            })
+        })
+        .collect();
+    (StatusCode::OK, Json(serde_json::json!({ "data": data, "count": data.len() }))).into_response()
+}
+
 async fn issue_pin(
     State(svc): State<Arc<AttendanceWriteService>>,
     _org: OrgContext,
@@ -368,6 +427,110 @@ async fn submit_correction(
     }
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CorrectionListQuery {
+    #[serde(default)]
+    employee_id: Option<Uuid>,
+    #[serde(default)]
+    limit: Option<i64>,
+}
+
+/// The corrections queue: newest first, optionally one employee's own.
+async fn list_corrections(
+    _org: OrgContext,
+    Extension(pool): Extension<backbone_orm::PgPool>,
+    Query(q): Query<CorrectionListQuery>,
+) -> axum::response::Response {
+    use axum::http::StatusCode;
+    use axum::Json;
+    let limit = q.limit.unwrap_or(100).clamp(1, 500);
+    let rows = match backbone_orm::company_scope::fetch_all_rows_scoped(
+        &pool,
+        sqlx::query(
+            r#"SELECT id, session_id, employee_id, check_in, check_out, reason,
+                      status::text AS status, approval_request_id, submitted_at
+                 FROM attendance.attendance_corrections
+                WHERE (metadata->>'deleted_at') IS NULL
+                  AND ($1::uuid IS NULL OR employee_id = $1)
+                ORDER BY submitted_at DESC
+                LIMIT $2"#,
+        )
+        .bind(q.employee_id)
+        .bind(limit),
+    )
+    .await
+    {
+        Ok(rows) => rows,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({ "error": "corrections_unavailable", "message": e.to_string() })),
+            )
+                .into_response()
+        }
+    };
+    use sqlx::Row;
+    let data: Vec<serde_json::Value> = rows
+        .iter()
+        .map(|r| {
+            serde_json::json!({
+                "id": r.get::<Uuid, _>("id"),
+                "sessionId": r.get::<Uuid, _>("session_id"),
+                "employeeId": r.get::<Uuid, _>("employee_id"),
+                "checkIn": r.get::<chrono::DateTime<chrono::Utc>, _>("check_in"),
+                "checkOut": r.get::<Option<chrono::DateTime<chrono::Utc>>, _>("check_out"),
+                "reason": r.get::<String, _>("reason"),
+                "status": r.get::<String, _>("status"),
+                "approvalRequestId": r.get::<Option<Uuid>, _>("approval_request_id"),
+                "submittedAt": r.get::<chrono::DateTime<chrono::Utc>, _>("submitted_at"),
+            })
+        })
+        .collect();
+    (StatusCode::OK, Json(serde_json::json!({ "data": data, "count": data.len() }))).into_response()
+}
+
+/// One correction by id.
+async fn get_correction(
+    _org: OrgContext,
+    Extension(pool): Extension<backbone_orm::PgPool>,
+    Path(correction_id): Path<Uuid>,
+) -> axum::response::Response {
+    use axum::http::StatusCode;
+    use axum::Json;
+    let row = backbone_orm::company_scope::fetch_optional_scoped(
+        &pool,
+        sqlx::query_as::<_, (Uuid, Uuid, chrono::DateTime<chrono::Utc>, Option<chrono::DateTime<chrono::Utc>>, String, String)>(
+            r#"SELECT session_id, employee_id, check_in, check_out, reason, status::text
+                 FROM attendance.attendance_corrections
+                WHERE id = $1 AND (metadata->>'deleted_at') IS NULL"#,
+        )
+        .bind(correction_id),
+    )
+    .await
+    .unwrap_or(None);
+    match row {
+        Some((session_id, employee_id, check_in, check_out, reason, status)) => (
+            StatusCode::OK,
+            Json(serde_json::json!({
+                "id": correction_id,
+                "sessionId": session_id,
+                "employeeId": employee_id,
+                "checkIn": check_in,
+                "checkOut": check_out,
+                "reason": reason,
+                "status": status,
+            })),
+        )
+            .into_response(),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({ "error": "correction_not_found" })),
+        )
+            .into_response(),
+    }
+}
+
 async fn apply_correction(
     State(svc): State<Arc<crate::application::service::attendance_correction_lifecycle::CorrectionLifecycleService>>,
     _org: OrgContext,
@@ -408,6 +571,8 @@ pub fn create_guarded_attendance_routes(m: &AttendanceModule) -> Router {
     // apply/reject are the verdict-gated writers; cancel withdraws.
     let corrections = Router::new()
         .route("/attendance/corrections", post(submit_correction))
+        .route("/attendance/corrections", get(list_corrections))
+        .route("/attendance/corrections/:correction_id", get(get_correction))
         .route("/attendance/corrections/:correction_id/apply", post(apply_correction))
         .route("/attendance/corrections/:correction_id/reject", post(reject_correction))
         .route("/attendance/corrections/:correction_id/cancel", post(cancel_correction))
@@ -419,11 +584,17 @@ pub fn create_guarded_attendance_routes(m: &AttendanceModule) -> Router {
         .route("/attendance/break/start", post(break_start))
         .route("/attendance/break/end", post(break_end))
         .route("/attendance/schedule", get(resolve_schedule))
-        .route("/attendance/sessions/:session_id/correct", post(correct_session))
+        // The direct correct verb stays UNMOUNTED (#606): corrections go
+        // through the engine-gated lifecycle (/attendance/corrections),
+        // where the drift policy decides direct-apply vs approval. The
+        // handler remains for unwired deployments to mount deliberately.
         .route("/attendance/kiosk/pins", post(issue_pin))
         .route("/attendance/kiosk/pins/rotate", post(rotate_pin))
         .route("/attendance/kiosk/pins/unlock", post(unlock_pin))
         .route("/attendance/kiosk/pins/:employee_id", delete(revoke_pin))
+        // The kiosk pin list (#608): per-person actions need the live pins
+        // (badge code, expiry, lockout) — a read, not a mint.
+        .route("/attendance/kiosk/pins", get(list_pins))
         .with_state(m.attendance_write_service.clone())
         .merge(corrections)
         // The shift/roster masters: generated CRUD carrying their own state,
