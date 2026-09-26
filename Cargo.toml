@@ -1,6 +1,6 @@
 [package]
 name = "backbone-attendance"
-version = "v0.6.29"
+version = "0.6.29"
 edition = "2021"
 description = "Minimal Backbone Framework module skeleton"
 
