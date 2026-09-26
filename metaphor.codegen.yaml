@@ -11,6 +11,11 @@
 # Add your hand-authored services, handlers, tests, and docs below as you write them.
 
 user_owned:
+  # hand-maintained: carry the temporal filter-cast hints until the schema
+  # plugin emits them itself
+  - "src/domain/entity/attendance.rs"
+  - "src/domain/entity/attendance_session.rs"
+  - "src/domain/entity/attendance_clock.rs"
 
   # The overtime pre-authorisation lifecycle (approvals seam port + service)
   # and the emitted-for-it table migration pinned here so a later --force
