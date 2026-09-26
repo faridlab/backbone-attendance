@@ -216,6 +216,12 @@ pub struct AttendanceWriteService {
 }
 
 impl AttendanceWriteService {
+    /// The database this verb runs on: the composer's request pool when the
+    /// tenant router installed one, else the composed pool.
+    fn rpool(&self) -> sqlx::PgPool {
+        crate::request_pool::current().unwrap_or_else(|| self.pool.clone())
+    }
+
     pub fn new(pool: PgPool) -> Self {
         Self {
             pool,
@@ -240,7 +246,7 @@ impl AttendanceWriteService {
         let now = Utc::now();
         let punched_at = validate_punch_time(at, None, now)?;
 
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.rpool().begin().await?;
         if let Some(scope) = org_scope::current_org_scope() {
             org_scope::bind_org_scope_on(&mut *tx, &scope).await?;
         }
@@ -325,7 +331,7 @@ impl AttendanceWriteService {
         let now = Utc::now();
         let punched_at = validate_punch_time(at, correction_reason, now)?;
 
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.rpool().begin().await?;
         if let Some(scope) = org_scope::current_org_scope() {
             org_scope::bind_org_scope_on(&mut *tx, &scope).await?;
         }
@@ -380,7 +386,7 @@ impl AttendanceWriteService {
         employee_id: Uuid,
         date: NaiveDate,
     ) -> Result<Option<serde_json::Value>, AttendanceWriteError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.rpool().begin().await?;
         if let Some(scope) = org_scope::current_org_scope() {
             org_scope::bind_org_scope_on(&mut tx, &scope).await?;
         }
@@ -406,7 +412,7 @@ impl AttendanceWriteService {
     ) -> Result<PunchOutcome, AttendanceWriteError> {
         let now = Utc::now();
         let punched_at = validate_punch_time(at, None, now)?;
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.rpool().begin().await?;
         if let Some(scope) = org_scope::current_org_scope() {
             org_scope::bind_org_scope_on(&mut tx, &scope).await?;
         }
@@ -443,7 +449,7 @@ impl AttendanceWriteService {
     ) -> Result<PunchOutcome, AttendanceWriteError> {
         let now = Utc::now();
         let punched_at = validate_punch_time(at, None, now)?;
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.rpool().begin().await?;
         if let Some(scope) = org_scope::current_org_scope() {
             org_scope::bind_org_scope_on(&mut tx, &scope).await?;
         }
@@ -492,7 +498,7 @@ impl AttendanceWriteService {
             }
         }
 
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.rpool().begin().await?;
         if let Some(scope) = org_scope::current_org_scope() {
             org_scope::bind_org_scope_on(&mut *tx, &scope).await?;
         }
@@ -543,7 +549,7 @@ impl AttendanceWriteService {
             AttendanceWriteError::Internal(format!("pin hash: {e}"))
         })?;
 
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.rpool().begin().await?;
         if let Some(scope) = org_scope::current_org_scope() {
             org_scope::bind_org_scope_on(&mut *tx, &scope).await?;
         }
@@ -569,7 +575,7 @@ impl AttendanceWriteService {
             AttendanceWriteError::Internal(format!("pin hash: {e}"))
         })?;
 
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.rpool().begin().await?;
         if let Some(scope) = org_scope::current_org_scope() {
             org_scope::bind_org_scope_on(&mut *tx, &scope).await?;
         }
@@ -584,7 +590,7 @@ impl AttendanceWriteService {
     /// Clear a lockout (admin unlock at the terminal — the credential itself is unchanged).
     pub async fn unlock_pin(&self, employee_id: Uuid) -> Result<(), AttendanceWriteError> {
         let now = Utc::now();
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.rpool().begin().await?;
         if let Some(scope) = org_scope::current_org_scope() {
             org_scope::bind_org_scope_on(&mut *tx, &scope).await?;
         }
@@ -596,7 +602,7 @@ impl AttendanceWriteService {
     /// Revoke the employee's live PIN — badge stops working at the terminal immediately.
     pub async fn revoke_pin(&self, employee_id: Uuid) -> Result<(), AttendanceWriteError> {
         let now = Utc::now();
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.rpool().begin().await?;
         if let Some(scope) = org_scope::current_org_scope() {
             org_scope::bind_org_scope_on(&mut *tx, &scope).await?;
         }

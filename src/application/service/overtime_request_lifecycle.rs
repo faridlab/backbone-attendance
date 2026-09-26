@@ -43,6 +43,12 @@ pub struct OvertimeLifecycleService {
 }
 
 impl OvertimeLifecycleService {
+    /// The database this verb runs on: the composer's request pool when the
+    /// tenant router installed one, else the composed pool.
+    fn rpool(&self) -> sqlx::PgPool {
+        crate::request_pool::current().unwrap_or_else(|| self.pool.clone())
+    }
+
     pub fn new(pool: PgPool) -> Self {
         Self {
             pool,
@@ -98,7 +104,7 @@ impl OvertimeLifecycleService {
             Err(e) => return Err(e.into()),
         };
 
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.rpool().begin().await?;
         if let Some(scope) = backbone_orm::org_scope::current_org_scope() {
             backbone_orm::org_scope::bind_org_scope_on(&mut tx, &scope).await?;
         }
@@ -180,7 +186,7 @@ impl OvertimeLifecycleService {
         to: &str,
         stamp_decided: bool,
     ) -> Result<(), OvertimeRequestError> {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.rpool().begin().await?;
         if let Some(scope) = backbone_orm::org_scope::current_org_scope() {
             backbone_orm::org_scope::bind_org_scope_on(&mut tx, &scope).await?;
         }
@@ -204,7 +210,7 @@ impl OvertimeLifecycleService {
 
     async fn load(&self, request_id: Uuid) -> Result<Row, OvertimeRequestError> {
         backbone_orm::company_scope::fetch_optional_scoped(
-            &self.pool,
+            &self.rpool(),
             sqlx::query_as::<_, Row>(
                 r#"SELECT employee_id, status::text AS status, approval_request_id
                      FROM attendance.overtime_requests

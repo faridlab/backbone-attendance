@@ -84,6 +84,12 @@ impl From<CorrectionSeamError> for CorrectionLifecycleError {
 }
 
 impl CorrectionLifecycleService {
+    /// The database this verb runs on: the composer's request pool when the
+    /// tenant router installed one, else the composed pool.
+    fn rpool(&self) -> sqlx::PgPool {
+        crate::request_pool::current().unwrap_or_else(|| self.pool.clone())
+    }
+
     pub fn new(pool: sqlx::PgPool) -> Self {
         Self {
             pool,
@@ -118,7 +124,7 @@ impl CorrectionLifecycleService {
             }
         }
 
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.rpool().begin().await?;
         if let Some(scope) = backbone_orm::org_scope::current_org_scope() {
             backbone_orm::org_scope::bind_org_scope_on(&mut tx, &scope).await?;
         }
@@ -190,7 +196,7 @@ impl CorrectionLifecycleService {
             )
             .bind(id)
             .bind(request_id)
-            .execute(&self.pool)
+            .execute(&self.rpool())
             .await?;
         }
         Ok((id, approval_request_id))
@@ -219,7 +225,7 @@ impl CorrectionLifecycleService {
 
         // The session rewrite, through the same validated lane the direct
         // correction uses (overlap re-check + both dates' rollups).
-        let write = super::attendance_write_service::AttendanceWriteService::new(self.pool.clone());
+        let write = super::attendance_write_service::AttendanceWriteService::new(self.rpool());
         write
             .correct_session(session_id, check_in, check_out, &reason)
             .await
@@ -227,7 +233,7 @@ impl CorrectionLifecycleService {
 
         // The status flip rides its own scoped tx — a bare pool
         // statement runs unfenced and the row is simply not there.
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.rpool().begin().await?;
         if let Some(scope) = backbone_orm::org_scope::current_org_scope() {
             backbone_orm::org_scope::bind_org_scope_on(&mut tx, &scope).await?;
         }
@@ -252,7 +258,7 @@ impl CorrectionLifecycleService {
         let _ = row;
         // The status flip rides its own scoped tx — a bare pool
         // statement runs unfenced and the row is simply not there.
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.rpool().begin().await?;
         if let Some(scope) = backbone_orm::org_scope::current_org_scope() {
             backbone_orm::org_scope::bind_org_scope_on(&mut tx, &scope).await?;
         }
@@ -275,7 +281,7 @@ impl CorrectionLifecycleService {
         self.pending_row(correction_id).await?;
         // The status flip rides its own scoped tx — a bare pool
         // statement runs unfenced and the row is simply not there.
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.rpool().begin().await?;
         if let Some(scope) = backbone_orm::org_scope::current_org_scope() {
             backbone_orm::org_scope::bind_org_scope_on(&mut tx, &scope).await?;
         }
@@ -295,7 +301,7 @@ impl CorrectionLifecycleService {
         correction_id: Uuid,
     ) -> Result<(Uuid, Uuid, DateTime<Utc>, Option<DateTime<Utc>>, String, Option<Uuid>), CorrectionLifecycleError>
     {
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.rpool().begin().await?;
         if let Some(scope) = backbone_orm::org_scope::current_org_scope() {
             backbone_orm::org_scope::bind_org_scope_on(&mut tx, &scope).await?;
         }

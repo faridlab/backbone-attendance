@@ -611,6 +611,12 @@ pub fn create_guarded_attendance_routes(m: &AttendanceModule) -> Router {
     // Reads: daily rollups, immutable clock events, sessions — kiosk_pin reads are deliberately
     // absent (hashes/counters never leave the module through a generic GET).
     Router::new()
+        // Bind the composer's request pool (ADR-0029 pool law) for every
+        // verb below: under a tenant mount the writes go to the tenant's
+        // database; without one the composed pool stays the fallback.
+        .layer(axum::middleware::from_fn(
+            crate::request_pool::bind_request_pool,
+        ))
         .merge(create_attendance_read_routes(m.attendance_service.clone()))
         .merge(create_attendance_clock_read_routes(m.attendance_clock_service.clone()))
         .merge(create_attendance_session_read_routes(m.attendance_session_service.clone()))
