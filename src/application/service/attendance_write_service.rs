@@ -119,6 +119,8 @@ pub enum AttendanceWriteError {
     AttemptTooSoon,
     #[error("PIN must be 4-8 digits")]
     WeakPin,
+    #[error("this employee or badge already holds a live PIN")]
+    PinAlreadyIssued,
     #[error("session not found")]
     SessionNotFound,
     #[error("no open session to punch out of")]
@@ -153,6 +155,7 @@ impl AttendanceWriteError {
             Self::PinExpired => "pin_expired",
             Self::AttemptTooSoon => "attempt_too_soon",
             Self::WeakPin => "weak_pin",
+            Self::PinAlreadyIssued => "pin_already_issued",
             Self::SessionNotFound => "session_not_found",
             Self::NoOpenSession => "no_open_session",
             Self::SessionStillOpen => "session_still_open",
@@ -173,6 +176,7 @@ impl AttendanceWriteError {
             Self::InvalidPin { .. } | Self::PinExpired => 401,
             Self::PinLocked { .. } | Self::AttemptTooSoon | Self::SessionOverlap
             | Self::SessionStillOpen | Self::NoOpenSession | Self::SessionAlreadyClosed => 409,
+            Self::PinAlreadyIssued => 409,
             Self::WeakPin | Self::InvalidTimeRange | Self::CorrectionReasonRequired
             | Self::BadDirection | Self::FuturePunch => 422,
             Self::Internal(_) | Self::Db(_) => 500,
@@ -556,7 +560,17 @@ impl AttendanceWriteService {
         let id = self
             .repo
             .issue_pin(&mut tx, employee_id, badge_code, &hash, expires_at, now)
-            .await?;
+            .await
+            .map_err(|e| match &e {
+                // The partial unique indexes refuse a second LIVE pin for
+                // the same employee or badge — a conflict, not a crash.
+                sqlx::Error::Database(db)
+                    if db.code().as_deref() == Some("23505") =>
+                {
+                    AttendanceWriteError::PinAlreadyIssued
+                }
+                _ => AttendanceWriteError::from(e),
+            })?;
         tx.commit().await?;
         Ok(id)
     }
