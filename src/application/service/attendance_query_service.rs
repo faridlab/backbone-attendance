@@ -34,8 +34,17 @@ use crate::exports::{
 // (not `domain::entity::*`) to avoid a name collision.
 use crate::AttendanceModule;
 
+impl AttendanceModule {
+    /// The database these reads run on: the composer's request pool when the
+    /// tenant router installed one, else the composed pool (ADR-0029 pool law).
+    pub(crate) fn rpool(&self) -> sqlx::PgPool {
+        crate::request_pool::current().unwrap_or_else(|| self.db_pool.clone())
+    }
+}
+
 #[async_trait]
 impl AttendanceQueryService for AttendanceModule {
+
     async fn get_attendance(&self, id: AttendanceId) -> Result<Option<AttendanceDto>> {
         let entity = self
             .attendance_service
@@ -95,7 +104,7 @@ impl AttendanceQueryService for AttendanceModule {
     ) -> Result<Vec<NaiveDate>> {
         Ok(self
             .attendance_repository
-            .present_days(&self.db_pool, employee_id, from, to)
+            .present_days(&self.rpool(), employee_id, from, to)
             .await?)
     }
 
@@ -107,7 +116,7 @@ impl AttendanceQueryService for AttendanceModule {
     ) -> Result<rust_decimal::Decimal> {
         Ok(self
             .attendance_repository
-            .overtime_hours(&self.db_pool, employee_id, from, to)
+            .overtime_hours(&self.rpool(), employee_id, from, to)
             .await?)
     }
 
@@ -119,7 +128,7 @@ impl AttendanceQueryService for AttendanceModule {
     ) -> Result<Vec<(NaiveDate, rust_decimal::Decimal)>> {
         Ok(self
             .attendance_repository
-            .overtime_stretches(&self.db_pool, employee_id, from, to)
+            .overtime_stretches(&self.rpool(), employee_id, from, to)
             .await?)
     }
 }
