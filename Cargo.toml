@@ -1,8 +1,8 @@
 [package]
 name = "backbone-attendance"
-version = "0.6.38"
+version = "0.6.39"
 edition = "2021"
-description = "Minimal Backbone Framework module skeleton"
+description = "Attendance: shifts and rosters, punch-clock sessions with kiosk PINs, attendance corrections and overtime requests"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/faridlab/backbone-attendance"
 exclude = [".claude/", ".github/", "graphify-out/"]
