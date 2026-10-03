@@ -1,6 +1,6 @@
 [package]
 name = "backbone-attendance"
-version = "0.6.39"
+version = "0.6.40"
 edition = "2021"
 description = "Attendance: shifts and rosters, punch-clock sessions with kiosk PINs, attendance corrections and overtime requests"
 license = "MIT OR Apache-2.0"
@@ -32,6 +32,8 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 uuid = { version = "1.0", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
+# The business timezone (a punch is dated by the company's local day, not the UTC day).
+chrono-tz = "0.8"
 # Money/quantities — near-universal in domain modules. Generated code for any `decimal`
 # field imports rust_decimal, so ship it (and the matching sqlx feature) by default.
 rust_decimal = { version = "1.36", features = ["serde"] }
