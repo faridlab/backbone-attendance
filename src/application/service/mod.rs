@@ -26,6 +26,8 @@ pub mod attendance_correction_lifecycle;
 pub mod attendance_query_service;
 // The validated write path (punch in/out, kiosk Tier B PIN, session corrections) — H-3.
 pub mod attendance_write_service;
+// The business day: the timezone every attendance day boundary is counted in.
+pub mod business_day;
 // END CUSTOM
 
 pub use attendance_service::AttendanceService;

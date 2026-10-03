@@ -25,6 +25,7 @@
 //! run correct service logic; the DB still rejects the double session.
 
 use chrono::{DateTime, Duration, NaiveDate, Utc};
+use super::business_day::{business_date, business_timezone, wall_time};
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -513,9 +514,10 @@ impl AttendanceWriteService {
             .await?
             .ok_or(AttendanceWriteError::SessionNotFound)?;
 
+        let tz = business_timezone(&mut tx).await?;
         let updated = self
             .repo
-            .correct_session(&mut tx, session_id, check_in, check_out, reason.trim(), now)
+            .correct_session(&mut tx, session_id, check_in, check_out, business_date(check_in, tz), reason.trim(), now)
             .await?
             .ok_or(AttendanceWriteError::SessionNotFound)?;
 
@@ -523,11 +525,11 @@ impl AttendanceWriteService {
         // the old day may now have no sessions and must stop counting as present).
         if old.date != updated.date {
             self.repo
-                .refresh_rollup_from_sessions(&mut tx, updated.employee_id, old.date, now)
+                .refresh_rollup_from_sessions(&mut tx, updated.employee_id, old.date, tz, now)
                 .await?;
         }
         self.repo
-            .refresh_rollup_from_sessions(&mut tx, updated.employee_id, updated.date, now)
+            .refresh_rollup_from_sessions(&mut tx, updated.employee_id, updated.date, tz, now)
             .await?;
 
         tx.commit().await?;
@@ -657,9 +659,11 @@ impl AttendanceWriteService {
         device_ref: Option<&str>,
     ) -> Result<PunchOutcome, AttendanceWriteError> {
         let now = Utc::now();
-        // Business date = the date of shift START — a night shift punches out "tomorrow" but
-        // stays on one session row and one rollup day.
-        let business_date = check_in.date_naive();
+        // Business date = the LOCAL date of shift START — a night shift punches out "tomorrow"
+        // but stays on one session row and one rollup day. Local, not UTC: an early-morning
+        // clock-in east of Greenwich is still the previous day in UTC.
+        let tz = business_timezone(&mut *conn).await?;
+        let business_date = business_date(check_in, tz);
 
         // The schedule snapshot is resolved at write time from the roster:
         // the shift this punch measures against, frozen on the rollup row so
@@ -681,7 +685,7 @@ impl AttendanceWriteService {
             )
             .await?;
         self.repo
-            .upsert_rollup_times(&mut *conn, employee_id, business_date, Some(check_in.time()), None, now, schedule)
+            .upsert_rollup_times(&mut *conn, employee_id, business_date, Some(wall_time(check_in, tz)), None, now, schedule)
             .await?;
 
         Ok(SessionRow::into_outcome(session, PunchDirection::In))
@@ -700,6 +704,7 @@ impl AttendanceWriteService {
         if check_out <= session.check_in {
             return Err(AttendanceWriteError::InvalidTimeRange);
         }
+        let tz = business_timezone(&mut *conn).await?;
 
         let closed = self
             .repo
@@ -715,7 +720,7 @@ impl AttendanceWriteService {
             )
             .await?;
         self.repo
-            .upsert_rollup_times(&mut *conn, closed.employee_id, closed.date, None, Some(check_out.time()), now, None)
+            .upsert_rollup_times(&mut *conn, closed.employee_id, closed.date, None, Some(wall_time(check_out, tz)), now, None)
             .await?;
 
         Ok(SessionRow::into_outcome(closed, PunchDirection::Out))

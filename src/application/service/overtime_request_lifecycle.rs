@@ -75,7 +75,13 @@ impl OvertimeLifecycleService {
         hours_planned: Decimal,
         reason: String,
     ) -> Result<Uuid, OvertimeRequestError> {
-        if date < Utc::now().date_naive() {
+        // "Today" is the business day (the installation's timezone), the same boundary the
+        // punch path dates attendance by.
+        let tz = {
+            let mut conn = self.rpool().acquire().await?;
+            super::business_day::business_timezone(&mut conn).await?
+        };
+        if date < super::business_day::business_date(Utc::now(), tz) {
             return Err(OvertimeRequestError::Invalid(
                 "pre-authorisation is for a future date — worked overtime is explained, not pre-authorised",
             ));

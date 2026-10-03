@@ -403,14 +403,17 @@ impl AttendanceWriteRepository {
         session_id: Uuid,
         check_in: DateTime<Utc>,
         check_out: Option<DateTime<Utc>>,
+        business_date: NaiveDate,
         correction_reason: &str,
         now: DateTime<Utc>,
     ) -> Result<Option<SessionRow>, sqlx::Error> {
+        // The business date is the caller's (the local day of the new check-in), never
+        // `check_in::date`, which reads the instant in the DB session's timezone.
         sqlx::query_as::<_, SessionRow>(
             r#"UPDATE attendance.attendance_sessions
                   SET check_in = $2,
                       check_out = $3,
-                      date = $2::date,
+                      date = $6,
                       correction_reason = $4,
                       metadata = metadata || jsonb_build_object('updated_at', to_jsonb($5::timestamptz))
                 WHERE id = $1
@@ -422,6 +425,7 @@ impl AttendanceWriteRepository {
         .bind(check_out)
         .bind(correction_reason)
         .bind(now)
+        .bind(business_date)
         .fetch_optional(conn)
         .await
     }
@@ -576,25 +580,27 @@ impl AttendanceWriteRepository {
     }
 
     /// Recompute the rollup for a business date from its live sessions (post-correction truth):
-    /// earliest check_in wall-time / latest check_out wall-time (`::time` renders in the DB
-    /// session's timezone — same wall-clock semantics the rollup's NaiveTime columns already
-    /// carry). Aggregates over an empty set return one all-NULL row, so "no live sessions"
+    /// earliest check_in wall-time / latest check_out wall-time, read in the business timezone
+    /// `tz` — the same local wall clock the punch path writes into the rollup's NaiveTime
+    /// columns. Aggregates over an empty set return one all-NULL row, so "no live sessions"
     /// (both NULL) soft-deletes the rollup — the day no longer counts as present for payroll.
     pub async fn refresh_rollup_from_sessions(
         &self,
         conn: &mut PgConnection,
         employee_id: Uuid,
         date: NaiveDate,
+        tz: chrono_tz::Tz,
         now: DateTime<Utc>,
     ) -> Result<(), sqlx::Error> {
         let (clockin, clockout): (Option<NaiveTime>, Option<NaiveTime>) = sqlx::query_as(
-            r#"SELECT MIN(check_in::time), MAX(check_out::time)
+            r#"SELECT MIN((check_in AT TIME ZONE $3)::time), MAX((check_out AT TIME ZONE $3)::time)
                  FROM attendance.attendance_sessions
                 WHERE employee_id = $1 AND date = $2
                   AND (metadata->>'deleted_at') IS NULL"#,
         )
         .bind(employee_id)
         .bind(date)
+        .bind(tz.name())
         .fetch_one(&mut *conn)
         .await?;
 

@@ -592,3 +592,57 @@ async fn rostered_shift_freezes_into_the_rollup_snapshot() {
         "no shift is invented for an unrostered day"
     );
 }
+
+// ─── ATT-12: the business timezone comes from the installation setting ───────
+
+/// The punch path dates attendance by the business timezone read from
+/// `platform.sysparams` (`locale` / `timezone`). The module's test database has no such
+/// table, so this builds one INSIDE a transaction and rolls it back — nothing persists and
+/// no parallel test sees it.
+#[tokio::test]
+async fn business_timezone_reads_the_locale_setting_and_falls_back_to_utc() {
+    use backbone_attendance::application::service::business_day::{business_date, business_timezone};
+    use chrono::TimeZone;
+
+    let pool = pool().await;
+    let mut tx = pool.begin().await.unwrap();
+
+    // No settings table (the module's own database): UTC, the old behaviour.
+    let has: bool = sqlx::query_scalar("SELECT to_regclass('platform.sysparams') IS NOT NULL")
+        .fetch_one(&mut *tx)
+        .await
+        .unwrap();
+    if !has {
+        assert_eq!(business_timezone(&mut tx).await.unwrap(), chrono_tz::Tz::UTC);
+        sqlx::raw_sql(
+            "CREATE SCHEMA IF NOT EXISTS platform;
+             CREATE TABLE platform.sysparams (
+                 group_name varchar(64) NOT NULL, key varchar(128) NOT NULL,
+                 value text NOT NULL, status text NOT NULL DEFAULT 'active');",
+        )
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    }
+    sqlx::query("DELETE FROM platform.sysparams WHERE group_name = 'locale' AND key = 'timezone'")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    // A table without the row: still UTC.
+    assert_eq!(business_timezone(&mut tx).await.unwrap(), chrono_tz::Tz::UTC);
+
+    sqlx::query(
+        "INSERT INTO platform.sysparams (group_name, key, value, status) \
+         VALUES ('locale', 'timezone', 'Asia/Jakarta', 'active')",
+    )
+    .execute(&mut *tx)
+    .await
+    .unwrap();
+    let tz = business_timezone(&mut tx).await.unwrap();
+    assert_eq!(tz, chrono_tz::Tz::Asia__Jakarta);
+    // The reported punch: 03:51 on Saturday in Jakarta is still Friday in UTC.
+    let at = Utc.with_ymd_and_hms(2026, 10, 2, 20, 51, 52).unwrap();
+    assert_eq!(business_date(at, tz).to_string(), "2026-10-03");
+
+    tx.rollback().await.unwrap();
+}

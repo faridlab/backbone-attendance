@@ -40,6 +40,7 @@ user_owned:
   # (argon2id + escalating lockout, ADR-0018), session corrections with mandatory reason,
   # EXCLUDE-overlap 23P01 → 409 mapping, daily rollup upsert.
   - "src/application/service/attendance_write_service.rs"
+  - "src/application/service/business_day.rs"
   # All hand-written write SQL for that service (sessions, immutable clock events, kiosk PINs,
   # rollup upsert) — transaction-scoped `&mut PgConnection` methods, company bound by the service.
   - "src/infrastructure/persistence/attendance_write_repository.rs"
