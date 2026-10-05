@@ -304,7 +304,9 @@ async fn list_pins(
     use axum::http::StatusCode;
     use axum::Json;
     let limit = q.limit.unwrap_or(100).clamp(1, 500);
-    let rows = match backbone_orm::company_scope::fetch_all_rows_scoped(
+    // The multi-row read twin rides the org-scope module: request-dedicated connection when
+    // the composer bound one, plain pool otherwise, no scope invented.
+    let rows = match backbone_orm::org_scope::fetch_all_rows_scoped(
         &pool,
         sqlx::query(
             r#"SELECT id, employee_id, badge_code, expires_at, locked_until,
@@ -445,7 +447,9 @@ async fn list_corrections(
     use axum::http::StatusCode;
     use axum::Json;
     let limit = q.limit.unwrap_or(100).clamp(1, 500);
-    let rows = match backbone_orm::company_scope::fetch_all_rows_scoped(
+    // The multi-row read twin rides the org-scope module: request-dedicated connection when
+    // the composer bound one, plain pool otherwise, no scope invented.
+    let rows = match backbone_orm::org_scope::fetch_all_rows_scoped(
         &pool,
         sqlx::query(
             r#"SELECT id, session_id, employee_id, check_in, check_out, reason,
