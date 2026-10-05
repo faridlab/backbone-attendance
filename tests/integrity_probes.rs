@@ -251,7 +251,8 @@ async fn guarded_correction_requires_reason() {
 
     let at = (Utc::now() - Duration::days(1) + Duration::hours(9)).to_rfc3339();
     let punch = format!(r#"{{"employeeId":"{employee}","direction":"in","at":"{at}","correctionReason":"seed"}}"#);
-    req(create_guarded_attendance_routes(&m), "POST", "/attendance/punch", punch).await;
+    let s = req(create_guarded_attendance_routes(&m), "POST", "/attendance/punch", punch).await;
+    assert_eq!(s, StatusCode::OK, "seed punch-in opens the session");
 
     // Find the session id.
     let sql = format!(
@@ -259,14 +260,25 @@ async fn guarded_correction_requires_reason() {
     );
     let session_id: Uuid = one(&pool, sql).await;
 
+    // The direct correct verb is unmounted; corrections file through the engine-gated
+    // lifecycle, which refuses a blank reason with 422 reason_required.
     let empty_reason = format!(
-        r#"{{"checkIn":"{at}","checkOut":null,"reason":"   "}}"#
+        r#"{{"sessionId":"{session_id}","employeeId":"{employee}","checkIn":"{at}","checkOut":null,"reason":"   "}}"#
     );
     let s = req(
         create_guarded_attendance_routes(&m), "POST",
-        &format!("/attendance/sessions/{session_id}/correct"), empty_reason,
+        "/attendance/corrections", empty_reason,
     ).await;
     assert_eq!(s, StatusCode::UNPROCESSABLE_ENTITY, "blank reason must be 422");
+
+    // The direct verb stays unmounted on purpose (drift policy owns direct-apply vs
+    // approval): it answers 404, never a silent apply.
+    let direct = format!(r#"{{"checkIn":"{at}","checkOut":null,"reason":"   "}}"#);
+    let s = req(
+        create_guarded_attendance_routes(&m), "POST",
+        &format!("/attendance/sessions/{session_id}/correct"), direct,
+    ).await;
+    assert_eq!(s, StatusCode::NOT_FOUND, "direct correct verb stays unmounted");
 }
 
 // ─── ATT-6: weak PIN rejected at issue ────────────────────────────────────────
