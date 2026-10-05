@@ -208,7 +208,7 @@ dependencies = [
 
 [[package]]
 name = "backbone-attendance"
-version = "0.6.40"
+version = "0.6.41"
 dependencies = [
  "anyhow",
  "async-trait",
