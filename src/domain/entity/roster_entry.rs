@@ -207,6 +207,7 @@ impl backbone_orm::EntityRepoMeta for RosterEntry {
         m.insert("id".to_string(), "uuid".to_string());
         m.insert("employee_id".to_string(), "uuid".to_string());
         m.insert("shift_id".to_string(), "uuid".to_string());
+        m.insert("date".to_string(), "date".to_string());
         m
     }
     fn search_fields() -> &'static [&'static str] {

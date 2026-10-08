@@ -194,6 +194,8 @@ impl AttendanceModule {
 /// Builder for AttendanceModule
 pub struct AttendanceModuleBuilder {
     db_pool: Option<PgPool>,
+    // <<< CUSTOM BUILDER FIELDS
+    // END CUSTOM
 }
 
 impl AttendanceModuleBuilder {
@@ -201,6 +203,8 @@ impl AttendanceModuleBuilder {
     pub fn new() -> Self {
         Self {
             db_pool: None,
+            // <<< CUSTOM BUILDER DEFAULTS
+            // END CUSTOM
         }
     }
 

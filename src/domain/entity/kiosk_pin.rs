@@ -238,6 +238,9 @@ impl backbone_orm::EntityRepoMeta for KioskPin {
         let mut m = std::collections::HashMap::new();
         m.insert("id".to_string(), "uuid".to_string());
         m.insert("employee_id".to_string(), "uuid".to_string());
+        m.insert("locked_until".to_string(), "timestamptz".to_string());
+        m.insert("last_attempt_at".to_string(), "timestamptz".to_string());
+        m.insert("expires_at".to_string(), "timestamptz".to_string());
         m
     }
     fn search_fields() -> &'static [&'static str] {

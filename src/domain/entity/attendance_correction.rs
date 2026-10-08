@@ -247,6 +247,9 @@ impl backbone_orm::EntityRepoMeta for AttendanceCorrection {
         m.insert("employee_id".to_string(), "uuid".to_string());
         m.insert("approval_request_id".to_string(), "uuid".to_string());
         m.insert("status".to_string(), "correction_status".to_string());
+        m.insert("check_in".to_string(), "timestamptz".to_string());
+        m.insert("check_out".to_string(), "timestamptz".to_string());
+        m.insert("submitted_at".to_string(), "timestamptz".to_string());
         m
     }
     fn search_fields() -> &'static [&'static str] {
