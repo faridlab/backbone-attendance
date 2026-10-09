@@ -218,7 +218,7 @@ impl OvertimeLifecycleService {
         backbone_orm::company_scope::fetch_optional_scoped(
             &self.rpool(),
             sqlx::query_as::<_, Row>(
-                r#"SELECT employee_id, status::text AS status, approval_request_id
+                r#"SELECT status::text AS status, approval_request_id
                      FROM attendance.overtime_requests
                     WHERE id = $1 AND (metadata->>'deleted_at') IS NULL"#,
             )
@@ -231,7 +231,6 @@ impl OvertimeLifecycleService {
 
 #[derive(sqlx::FromRow)]
 struct Row {
-    employee_id: Uuid,
     status: String,
     approval_request_id: Option<Uuid>,
 }

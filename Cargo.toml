@@ -1,6 +1,6 @@
 [package]
 name = "backbone-attendance"
-version = "0.7.0"
+version = "0.7.1"
 edition = "2021"
 description = "Attendance: shifts and rosters, punch-clock sessions with kiosk PINs, attendance corrections and overtime requests"
 license = "MIT OR Apache-2.0"

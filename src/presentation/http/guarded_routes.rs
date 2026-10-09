@@ -108,7 +108,7 @@ struct KioskPunchBody {
     /// Server-stamped unless the terminal supplies its trusted clock. Future-dated beyond
     /// the skew allowance is refused (422 `future_punch`); backdated beyond it is refused too —
     /// the kiosk body carries no correction reason, so backdating goes through the admin punch
-    /// (with a reason) or `correct_session`.
+    /// (with a reason) or a correction request (`/attendance/corrections`).
     #[serde(default)]
     at: Option<DateTime<Utc>>,
 }
@@ -129,14 +129,6 @@ struct PunchBody {
     /// immutable event so a drifted kiosk is spotted across its users.
     #[serde(default)]
     device_ref: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct CorrectSessionBody {
-    check_in: DateTime<Utc>,
-    check_out: Option<DateTime<Utc>>,
-    reason: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -266,21 +258,6 @@ async fn break_end(
         Some(_) => return err_response(AttendanceWriteError::BadDirection),
     };
     match svc.break_end(b.employee_id, source, b.at).await {
-        Ok(outcome) => punch_response(outcome),
-        Err(e) => err_response(e),
-    }
-}
-
-async fn correct_session(
-    State(svc): State<Arc<AttendanceWriteService>>,
-    _org: OrgContext,
-    Path(session_id): Path<Uuid>,
-    Json(b): Json<CorrectSessionBody>,
-) -> axum::response::Response {
-    match svc
-        .correct_session(session_id, b.check_in, b.check_out, &b.reason)
-        .await
-    {
         Ok(outcome) => punch_response(outcome),
         Err(e) => err_response(e),
     }
