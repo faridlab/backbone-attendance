@@ -41,7 +41,7 @@ models:
 
       pin_hash:
         type: string
-        attributes: ["@required", "@length(max=255)"]
+        attributes: ["@required", "@length(max=255)", "@sensitive", "@immutable"]
         description: "argon2id PHC string of the kiosk PIN"
 
       failed_attempts:

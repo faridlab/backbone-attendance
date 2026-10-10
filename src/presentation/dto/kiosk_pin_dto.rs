@@ -71,9 +71,6 @@ pub struct UpdateKioskPinDto {
     #[cfg_attr(feature = "openapi", schema(example = "example"))]
     #[serde(alias = "badge_code")]
     pub badge_code: String,
-    #[cfg_attr(feature = "openapi", schema(example = "example"))]
-    #[serde(alias = "pin_hash")]
-    pub pin_hash: String,
     #[cfg_attr(feature = "openapi", schema(example = 42))]
     #[serde(alias = "failed_attempts")]
     pub failed_attempts: i32,
@@ -104,9 +101,6 @@ pub struct PatchKioskPinDto {
     #[cfg_attr(feature = "openapi", schema(example = "example"))]
     #[serde(skip_serializing_if = "Option::is_none", alias = "badge_code")]
     pub badge_code: Option<String>,
-    #[cfg_attr(feature = "openapi", schema(example = "example"))]
-    #[serde(skip_serializing_if = "Option::is_none", alias = "pin_hash")]
-    pub pin_hash: Option<String>,
     #[cfg_attr(feature = "openapi", schema(example = 42))]
     #[serde(skip_serializing_if = "Option::is_none", alias = "failed_attempts")]
     pub failed_attempts: Option<i32>,
@@ -121,7 +115,7 @@ pub struct PatchKioskPinDto {
 impl PatchKioskPinDto {
     /// Check if any field is set
     pub fn has_changes(&self) -> bool {
-        self.employee_id.is_some() || self.badge_code.is_some() || self.pin_hash.is_some() || self.failed_attempts.is_some() || self.locked_until.is_some() || self.last_attempt_at.is_some() || self.expires_at.is_some()
+        self.employee_id.is_some() || self.badge_code.is_some() || self.failed_attempts.is_some() || self.locked_until.is_some() || self.last_attempt_at.is_some() || self.expires_at.is_some()
     }
 }
 
@@ -288,7 +282,6 @@ impl backbone_core::ApplyUpdateDto<UpdateKioskPinDto> for KioskPin {
     fn apply_update(mut self, dto: UpdateKioskPinDto) -> backbone_core::ServiceResult<Self> {
         self.employee_id = dto.employee_id;
         self.badge_code = dto.badge_code;
-        self.pin_hash = dto.pin_hash;
         self.failed_attempts = dto.failed_attempts;
         self.locked_until = dto.locked_until;
         self.last_attempt_at = dto.last_attempt_at;

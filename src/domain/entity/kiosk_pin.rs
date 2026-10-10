@@ -205,6 +205,9 @@ impl super::Entity for KioskPin {
 }
 
 impl backbone_core::PersistentEntity for KioskPin {
+    fn write_protected_fields() -> &'static [&'static str] {
+        &["pin_hash"]
+    }
     fn entity_id(&self) -> String {
         self.id.to_string()
     }
@@ -244,7 +247,10 @@ impl backbone_orm::EntityRepoMeta for KioskPin {
         m
     }
     fn search_fields() -> &'static [&'static str] {
-        &["badge_code", "pin_hash"]
+        &["badge_code"]
+    }
+    fn secret_fields() -> &'static [&'static str] {
+        &["pinHash"]
     }
 }
 
