@@ -15,9 +15,6 @@ pub mod roster_entry_handler;
 pub mod shift_handler;
 
 // <<< CUSTOM
-// Guarded composition (user-owned file): validated writes + safe reads, no generic mutation,
-// no kiosk_pin reads (PIN hashes never leave the module via a generic GET).
-pub mod guarded_routes;
 // END CUSTOM
 
 // Re-exports
@@ -30,5 +27,7 @@ pub use overtime_request_handler::{create_overtime_request_routes, create_overti
 pub use roster_entry_handler::{create_roster_entry_routes, create_roster_entry_read_routes, create_roster_entry_write_routes};
 pub use shift_handler::{create_shift_routes, create_shift_read_routes, create_shift_write_routes};
 // <<< CUSTOM
-pub use guarded_routes::create_guarded_attendance_routes;
 // END CUSTOM
+
+// This directory's extension (hand-written; ADR-0031).
+include!("mod.ext.rs");

@@ -15,8 +15,6 @@ mod shift_repository;
 
 // Custom persistence modules
 // <<< CUSTOM
-// Hand-written write SQL for the punch / session / kiosk-PIN flows (user-owned file).
-mod attendance_write_repository;
 // END CUSTOM
 
 // Re-exports
@@ -38,5 +36,7 @@ pub use backbone_orm::repository::{
 
 // Re-export custom persistence types
 // <<< CUSTOM
-pub use attendance_write_repository::{AttendanceWriteRepository, PinRow, SessionRow};
 // END CUSTOM
+
+// This directory's extension (hand-written; ADR-0031).
+include!("mod.ext.rs");

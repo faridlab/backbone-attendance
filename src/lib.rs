@@ -25,8 +25,17 @@ pub mod presentation;
 pub mod seeders;
 pub mod exports;
 // <<< CUSTOM MODULES
-pub mod request_pool;
 // END CUSTOM
+
+// The module's extension (hand-written; ADR-0031).
+#[path = "lib.ext.rs"]
+mod lib_ext;
+pub use lib_ext::*;
+/// This crate's module and builder under fixed names, for the extension's `impl` blocks.
+#[allow(dead_code)]
+pub(crate) type ThisModule = AttendanceModule;
+#[allow(dead_code)]
+pub(crate) type ThisModuleBuilder = AttendanceModuleBuilder;
 
 // Re-exports for convenience - Domain entities
 pub use domain::entity::*;
@@ -47,14 +56,6 @@ pub use application::service::ShiftService;
 // Re-exports - Workflows
 pub use application::workflows::*;
 
-// <<< CUSTOM
-// The validated write path (punch/session/kiosk-PIN — H-3) and its guarded HTTP composition.
-pub use application::service::{
-    validate_punch_time,
-    lockout_until, pin_is_wellformed, AttendanceWriteError, AttendanceWriteService, PunchOutcome,
-};
-pub use presentation::http::create_guarded_attendance_routes;
-// END CUSTOM
 use std::sync::Arc;
 use axum::Router;
 use sqlx::PgPool;
@@ -80,25 +81,45 @@ pub struct AttendanceModule {
     pub(crate) overtime_request_service: Arc<OvertimeRequestService>,
     pub(crate) roster_entry_service: Arc<RosterEntryService>,
     pub(crate) shift_service: Arc<ShiftService>,
+    /// The module's extension state (`lib.ext.rs`); its fields read through `Deref`.
+    pub(crate) ext: ModuleExt,
     // <<< CUSTOM FIELDS
-    // Held so the `AttendanceQueryService` impl can delegate `present_days` to the repo's
-    // hand-written SQL, and standard lookups to the CRUD services above. `db_pool` is the same pool
-    // the repo was constructed with (the repo's present-days reads ride the ambient request
-    // scope the composing service binds, per the backbone-hr read-port convention).
-    pub(crate) attendance_repository: Arc<AttendanceRepository>,
-    pub(crate) db_pool: sqlx::PgPool,
-    /// Validated punch/session/kiosk-PIN writes (EXCLUDE-overlap mapping, Tier B PIN policy,
-    /// immutable clock events, daily rollup upsert). The guarded routes compose off this.
-    pub(crate) attendance_write_service: Arc<AttendanceWriteService>,
-    /// The overtime pre-authorisation lifecycle (submit/confirm/refuse/cancel
-    /// over the approvals seam) — user-owned, not schema-derived.
-    pub(crate) overtime_request_lifecycle:
-        Arc<crate::application::service::overtime_request_lifecycle::OvertimeLifecycleService>,
-    /// The correction lifecycle (submit/apply/reject/cancel over the
-    /// approvals seam) — user-owned, not schema-derived.
-    pub(crate) attendance_correction_lifecycle:
-        Arc<crate::application::service::attendance_correction_lifecycle::CorrectionLifecycleService>,
     // END CUSTOM
+}
+
+impl std::ops::Deref for AttendanceModule {
+    type Target = ModuleExt;
+    fn deref(&self) -> &Self::Target {
+        &self.ext
+    }
+}
+
+impl std::ops::DerefMut for AttendanceModule {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.ext
+    }
+}
+
+/// What the extension's `build` hook receives from the generated build (ADR-0031).
+#[allow(dead_code)]
+pub(crate) struct ModuleParts<'a> {
+    pub(crate) db_pool: &'a PgPool,
+    pub(crate) attendance_service: &'a Arc<AttendanceService>,
+    pub(crate) attendance_repository: &'a Arc<AttendanceRepository>,
+    pub(crate) attendance_clock_service: &'a Arc<AttendanceClockService>,
+    pub(crate) attendance_clock_repository: &'a Arc<AttendanceClockRepository>,
+    pub(crate) attendance_correction_service: &'a Arc<AttendanceCorrectionService>,
+    pub(crate) attendance_correction_repository: &'a Arc<AttendanceCorrectionRepository>,
+    pub(crate) attendance_session_service: &'a Arc<AttendanceSessionService>,
+    pub(crate) attendance_session_repository: &'a Arc<AttendanceSessionRepository>,
+    pub(crate) kiosk_pin_service: &'a Arc<KioskPinService>,
+    pub(crate) kiosk_pin_repository: &'a Arc<KioskPinRepository>,
+    pub(crate) overtime_request_service: &'a Arc<OvertimeRequestService>,
+    pub(crate) overtime_request_repository: &'a Arc<OvertimeRequestRepository>,
+    pub(crate) roster_entry_service: &'a Arc<RosterEntryService>,
+    pub(crate) roster_entry_repository: &'a Arc<RosterEntryRepository>,
+    pub(crate) shift_service: &'a Arc<ShiftService>,
+    pub(crate) shift_repository: &'a Arc<ShiftRepository>,
 }
 
 impl AttendanceModule {
@@ -174,28 +195,29 @@ impl AttendanceModule {
     }
 
     // <<< CUSTOM METHODS
-    /// The overtime pre-authorisation lifecycle service (for the composing
-    /// service to wire its approvals adapter onto).
-    pub fn overtime_request_lifecycle(
-        &self,
-    ) -> Arc<crate::application::service::overtime_request_lifecycle::OvertimeLifecycleService> {
-        self.overtime_request_lifecycle.clone()
-    }
-    /// The correction lifecycle service (for the composing service to wire
-    /// its approvals adapter onto).
-    pub fn attendance_correction_lifecycle(
-        &self,
-    ) -> Arc<crate::application::service::attendance_correction_lifecycle::CorrectionLifecycleService> {
-        self.attendance_correction_lifecycle.clone()
-    }
     // END CUSTOM
 }
 
 /// Builder for AttendanceModule
 pub struct AttendanceModuleBuilder {
     db_pool: Option<PgPool>,
+    /// The builder's extension state (`lib.ext.rs`); its fields read through `Deref`.
+    ext: ModuleBuilderExt,
     // <<< CUSTOM BUILDER FIELDS
     // END CUSTOM
+}
+
+impl std::ops::Deref for AttendanceModuleBuilder {
+    type Target = ModuleBuilderExt;
+    fn deref(&self) -> &Self::Target {
+        &self.ext
+    }
+}
+
+impl std::ops::DerefMut for AttendanceModuleBuilder {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.ext
+    }
 }
 
 impl AttendanceModuleBuilder {
@@ -203,6 +225,7 @@ impl AttendanceModuleBuilder {
     pub fn new() -> Self {
         Self {
             db_pool: None,
+            ext: Default::default(),
             // <<< CUSTOM BUILDER DEFAULTS
             // END CUSTOM
         }
@@ -255,19 +278,28 @@ impl AttendanceModuleBuilder {
         let shift_service = Arc::new(ShiftService::with_repository(shift_repository.clone()));
 
         // <<< CUSTOM
-        let attendance_write_service = Arc::new(AttendanceWriteService::new(db_pool.clone()));
-        // The overtime pre-authorisation lifecycle service.
-        let overtime_request_lifecycle = Arc::new(
-            crate::application::service::overtime_request_lifecycle::OvertimeLifecycleService::new(
-                db_pool.clone(),
-            ),
-        );
-        let attendance_correction_lifecycle = Arc::new(
-            crate::application::service::attendance_correction_lifecycle::CorrectionLifecycleService::new(
-                db_pool.clone(),
-            ),
-        );
         // END CUSTOM
+
+        // The extension builds its own state from what the generated build made.
+        let ext = self.ext.build(&ModuleParts {
+            db_pool: &db_pool,
+            attendance_service: &attendance_service,
+            attendance_repository: &attendance_repository,
+            attendance_clock_service: &attendance_clock_service,
+            attendance_clock_repository: &attendance_clock_repository,
+            attendance_correction_service: &attendance_correction_service,
+            attendance_correction_repository: &attendance_correction_repository,
+            attendance_session_service: &attendance_session_service,
+            attendance_session_repository: &attendance_session_repository,
+            kiosk_pin_service: &kiosk_pin_service,
+            kiosk_pin_repository: &kiosk_pin_repository,
+            overtime_request_service: &overtime_request_service,
+            overtime_request_repository: &overtime_request_repository,
+            roster_entry_service: &roster_entry_service,
+            roster_entry_repository: &roster_entry_repository,
+            shift_service: &shift_service,
+            shift_repository: &shift_repository,
+        })?;
 
         Ok(AttendanceModule {
             attendance_service,
@@ -278,12 +310,8 @@ impl AttendanceModuleBuilder {
             overtime_request_service,
             roster_entry_service,
             shift_service,
+            ext,
             // <<< CUSTOM
-            attendance_repository,
-            db_pool,
-            attendance_write_service,
-            overtime_request_lifecycle,
-            attendance_correction_lifecycle,
             // END CUSTOM
         })
     }
@@ -294,3 +322,6 @@ impl Default for AttendanceModuleBuilder {
         Self::new()
     }
 }
+
+// This directory's extension (hand-written; ADR-0031).
+include!("mod.ext.rs");
