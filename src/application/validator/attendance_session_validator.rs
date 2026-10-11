@@ -16,9 +16,5 @@ pub type AttendanceSessionValidator = EntityValidator<AttendanceSession>;
 pub fn attendance_session_validator() -> AttendanceSessionValidator {
     EntityValidator::new()
         .rule(OptionalNotBlank::new("correction_reason", |e: &AttendanceSession| e.correction_reason.as_deref()))
-    // <<< CUSTOM RULES
-    // END CUSTOM RULES
 }
 
-// <<< CUSTOM
-// END CUSTOM

@@ -11,8 +11,6 @@ use crate::domain::entity::OvertimeRequest;
 /// enum containing a `Crud(CrudEvent<OvertimeRequest>)` variant.
 pub type OvertimeRequestEvent = CrudEvent<OvertimeRequest>;
 
-// <<< CUSTOM
-// END CUSTOM
 
 use backbone_messaging::{CrudEventPublisher, NoOpCrudEventPublisher};
 use std::sync::Arc;

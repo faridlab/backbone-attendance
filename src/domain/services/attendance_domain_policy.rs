@@ -18,5 +18,3 @@ use crate::domain::entity::Attendance;
 /// service. `PermitAllPolicy` is the safe default until then.
 pub type AttendanceDomainPolicy = PermitAllPolicy<Attendance>;
 
-// <<< CUSTOM
-// END CUSTOM

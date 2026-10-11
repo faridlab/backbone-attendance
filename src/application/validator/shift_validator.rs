@@ -17,9 +17,5 @@ pub fn shift_validator() -> ShiftValidator {
     EntityValidator::new()
         .rule(RequiredString::new("name", |e: &Shift| &e.name))
         .rule(RequiredString::new("code", |e: &Shift| &e.code))
-    // <<< CUSTOM RULES
-    // END CUSTOM RULES
 }
 
-// <<< CUSTOM
-// END CUSTOM

@@ -16,9 +16,5 @@ pub type AttendanceCorrectionValidator = EntityValidator<AttendanceCorrection>;
 pub fn attendance_correction_validator() -> AttendanceCorrectionValidator {
     EntityValidator::new()
         .rule(RequiredString::new("reason", |e: &AttendanceCorrection| &e.reason))
-    // <<< CUSTOM RULES
-    // END CUSTOM RULES
 }
 
-// <<< CUSTOM
-// END CUSTOM

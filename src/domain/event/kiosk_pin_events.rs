@@ -11,8 +11,6 @@ use crate::domain::entity::KioskPin;
 /// enum containing a `Crud(CrudEvent<KioskPin>)` variant.
 pub type KioskPinEvent = CrudEvent<KioskPin>;
 
-// <<< CUSTOM
-// END CUSTOM
 
 use backbone_messaging::{CrudEventPublisher, NoOpCrudEventPublisher};
 use std::sync::Arc;

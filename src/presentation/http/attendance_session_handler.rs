@@ -187,3 +187,4 @@ pub fn create_protected_attendance_session_routes<A: AuthMiddleware + Send + Syn
             }
         }))
 }
+

@@ -16,9 +16,5 @@ pub type AttendanceClockValidator = EntityValidator<AttendanceClock>;
 pub fn attendance_clock_validator() -> AttendanceClockValidator {
     EntityValidator::new()
         .rule(OptionalNotBlank::new("device_ref", |e: &AttendanceClock| e.device_ref.as_deref()))
-    // <<< CUSTOM RULES
-    // END CUSTOM RULES
 }
 
-// <<< CUSTOM
-// END CUSTOM

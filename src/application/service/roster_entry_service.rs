@@ -32,5 +32,3 @@ pub type RosterEntryService = GenericCrudService<
     RosterEntryRepository,
 >;
 
-// <<< CUSTOM
-// END CUSTOM

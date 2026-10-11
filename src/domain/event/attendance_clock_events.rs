@@ -11,8 +11,6 @@ use crate::domain::entity::AttendanceClock;
 /// enum containing a `Crud(CrudEvent<AttendanceClock>)` variant.
 pub type AttendanceClockEvent = CrudEvent<AttendanceClock>;
 
-// <<< CUSTOM
-// END CUSTOM
 
 use backbone_messaging::{CrudEventPublisher, NoOpCrudEventPublisher};
 use std::sync::Arc;

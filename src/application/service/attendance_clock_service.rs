@@ -32,5 +32,3 @@ pub type AttendanceClockService = GenericCrudService<
     AttendanceClockRepository,
 >;
 
-// <<< CUSTOM
-// END CUSTOM

@@ -32,5 +32,3 @@ pub type AttendanceService = GenericCrudService<
     AttendanceRepository,
 >;
 
-// <<< CUSTOM
-// END CUSTOM

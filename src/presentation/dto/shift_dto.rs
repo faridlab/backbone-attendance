@@ -282,7 +282,7 @@ impl backbone_core::ApplyUpdateDto<UpdateShiftDto> for Shift {
 // Custom DTOs
 // =============================================================================
 
-// <<< CUSTOM DTOs
 // Add custom DTOs specific to Shift here.
 // This section will be preserved during regeneration.
 // >>> END CUSTOM DTOs
+

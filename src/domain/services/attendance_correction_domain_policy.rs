@@ -18,5 +18,3 @@ use crate::domain::entity::AttendanceCorrection;
 /// service. `PermitAllPolicy` is the safe default until then.
 pub type AttendanceCorrectionDomainPolicy = PermitAllPolicy<AttendanceCorrection>;
 
-// <<< CUSTOM
-// END CUSTOM

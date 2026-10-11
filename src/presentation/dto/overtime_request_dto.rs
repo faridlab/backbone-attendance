@@ -293,7 +293,7 @@ impl backbone_core::ApplyUpdateDto<UpdateOvertimeRequestDto> for OvertimeRequest
 // Custom DTOs
 // =============================================================================
 
-// <<< CUSTOM DTOs
 // Add custom DTOs specific to OvertimeRequest here.
 // This section will be preserved during regeneration.
 // >>> END CUSTOM DTOs
+

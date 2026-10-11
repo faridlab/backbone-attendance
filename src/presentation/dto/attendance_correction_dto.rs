@@ -313,7 +313,7 @@ impl backbone_core::ApplyUpdateDto<UpdateAttendanceCorrectionDto> for Attendance
 // Custom DTOs
 // =============================================================================
 
-// <<< CUSTOM DTOs
 // Add custom DTOs specific to AttendanceCorrection here.
 // This section will be preserved during regeneration.
 // >>> END CUSTOM DTOs
+

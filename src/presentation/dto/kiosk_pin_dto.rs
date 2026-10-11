@@ -294,7 +294,7 @@ impl backbone_core::ApplyUpdateDto<UpdateKioskPinDto> for KioskPin {
 // Custom DTOs
 // =============================================================================
 
-// <<< CUSTOM DTOs
 // Add custom DTOs specific to KioskPin here.
 // This section will be preserved during regeneration.
 // >>> END CUSTOM DTOs
+

@@ -14,8 +14,6 @@ pub mod overtime_request_handler;
 pub mod roster_entry_handler;
 pub mod shift_handler;
 
-// <<< CUSTOM
-// END CUSTOM
 
 // Re-exports
 pub use attendance_handler::{create_attendance_routes, create_attendance_read_routes, create_attendance_write_routes};
@@ -26,8 +24,6 @@ pub use kiosk_pin_handler::{create_kiosk_pin_routes, create_kiosk_pin_read_route
 pub use overtime_request_handler::{create_overtime_request_routes, create_overtime_request_read_routes, create_overtime_request_write_routes};
 pub use roster_entry_handler::{create_roster_entry_routes, create_roster_entry_read_routes, create_roster_entry_write_routes};
 pub use shift_handler::{create_shift_routes, create_shift_read_routes, create_shift_write_routes};
-// <<< CUSTOM
-// END CUSTOM
 
 // This directory's extension (hand-written; ADR-0031).
 include!("mod.ext.rs");

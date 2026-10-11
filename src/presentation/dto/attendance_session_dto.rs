@@ -283,7 +283,7 @@ impl backbone_core::ApplyUpdateDto<UpdateAttendanceSessionDto> for AttendanceSes
 // Custom DTOs
 // =============================================================================
 
-// <<< CUSTOM DTOs
 // Add custom DTOs specific to AttendanceSession here.
 // This section will be preserved during regeneration.
 // >>> END CUSTOM DTOs
+

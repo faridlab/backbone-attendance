@@ -15,5 +15,3 @@ pub mod overtime_request_specification;
 pub mod roster_entry_specification;
 pub mod shift_specification;
 
-// <<< CUSTOM
-// END CUSTOM

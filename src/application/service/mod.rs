@@ -16,8 +16,6 @@ pub mod overtime_request_service;
 pub mod roster_entry_service;
 pub mod shift_service;
 
-// <<< CUSTOM
-// END CUSTOM
 
 pub use attendance_service::AttendanceService;
 pub use attendance_clock_service::AttendanceClockService;
@@ -27,8 +25,6 @@ pub use kiosk_pin_service::KioskPinService;
 pub use overtime_request_service::OvertimeRequestService;
 pub use roster_entry_service::RosterEntryService;
 pub use shift_service::ShiftService;
-// <<< CUSTOM
-// END CUSTOM
 
 // This directory's extension (hand-written; ADR-0031).
 include!("mod.ext.rs");

@@ -123,6 +123,4 @@ mod tests {
 // CUSTOM TESTS
 // ============================================================================
 
-// <<< CUSTOM TESTS START >>>
 // Add AttendanceCorrection specific tests here
-// <<< CUSTOM TESTS END >>>

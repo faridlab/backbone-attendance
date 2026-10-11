@@ -11,8 +11,6 @@ use crate::domain::entity::AttendanceSession;
 /// enum containing a `Crud(CrudEvent<AttendanceSession>)` variant.
 pub type AttendanceSessionEvent = CrudEvent<AttendanceSession>;
 
-// <<< CUSTOM
-// END CUSTOM
 
 use backbone_messaging::{CrudEventPublisher, NoOpCrudEventPublisher};
 use std::sync::Arc;

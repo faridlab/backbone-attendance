@@ -36,5 +36,3 @@ pub use roster_entry_event_handlers::RosterEntryEventHandler;
 pub use shift_events::{ShiftEvent, ShiftEventPublisher, NoopShiftEventPublisher};
 pub use shift_event_handlers::ShiftEventHandler;
 
-// <<< CUSTOM
-// END CUSTOM

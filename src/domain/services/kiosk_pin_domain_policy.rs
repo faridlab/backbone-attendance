@@ -18,5 +18,3 @@ use crate::domain::entity::KioskPin;
 /// service. `PermitAllPolicy` is the safe default until then.
 pub type KioskPinDomainPolicy = PermitAllPolicy<KioskPin>;
 
-// <<< CUSTOM
-// END CUSTOM

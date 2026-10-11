@@ -247,7 +247,7 @@ impl backbone_core::ApplyUpdateDto<UpdateRosterEntryDto> for RosterEntry {
 // Custom DTOs
 // =============================================================================
 
-// <<< CUSTOM DTOs
 // Add custom DTOs specific to RosterEntry here.
 // This section will be preserved during regeneration.
 // >>> END CUSTOM DTOs
+

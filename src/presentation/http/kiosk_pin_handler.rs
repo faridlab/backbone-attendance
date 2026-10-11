@@ -187,3 +187,4 @@ pub fn create_protected_kiosk_pin_routes<A: AuthMiddleware + Send + Sync + 'stat
             }
         }))
 }
+

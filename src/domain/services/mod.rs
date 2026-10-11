@@ -20,5 +20,3 @@ pub use overtime_request_domain_policy::OvertimeRequestDomainPolicy;
 pub use roster_entry_domain_policy::RosterEntryDomainPolicy;
 pub use shift_domain_policy::ShiftDomainPolicy;
 
-// <<< CUSTOM
-// END CUSTOM

@@ -121,6 +121,4 @@ mod tests {
 // CUSTOM TESTS
 // ============================================================================
 
-// <<< CUSTOM TESTS START >>>
 // Add AttendanceClock specific tests here
-// <<< CUSTOM TESTS END >>>

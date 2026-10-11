@@ -32,5 +32,3 @@ pub type OvertimeRequestService = GenericCrudService<
     OvertimeRequestRepository,
 >;
 
-// <<< CUSTOM
-// END CUSTOM

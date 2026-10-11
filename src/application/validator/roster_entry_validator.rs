@@ -14,10 +14,6 @@ pub type RosterEntryValidator = EntityValidator<RosterEntry>;
 /// Build a validator for RosterEntry with all schema-defined field rules.
 pub fn roster_entry_validator() -> RosterEntryValidator {
     EntityValidator::new()
-    // <<< CUSTOM RULES
-    // END CUSTOM RULES
         // No schema-derived rules — add custom rules above.
 }
 
-// <<< CUSTOM
-// END CUSTOM

@@ -32,5 +32,3 @@ pub type AttendanceCorrectionService = GenericCrudService<
     AttendanceCorrectionRepository,
 >;
 
-// <<< CUSTOM
-// END CUSTOM

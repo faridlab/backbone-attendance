@@ -23,5 +23,3 @@ pub use overtime_request_validator::{OvertimeRequestValidator, overtime_request_
 pub use roster_entry_validator::{RosterEntryValidator, roster_entry_validator};
 pub use shift_validator::{ShiftValidator, shift_validator};
 
-// <<< CUSTOM
-// END CUSTOM

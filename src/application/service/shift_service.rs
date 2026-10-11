@@ -32,5 +32,3 @@ pub type ShiftService = GenericCrudService<
     ShiftRepository,
 >;
 
-// <<< CUSTOM
-// END CUSTOM

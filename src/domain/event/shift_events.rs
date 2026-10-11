@@ -11,8 +11,6 @@ use crate::domain::entity::Shift;
 /// enum containing a `Crud(CrudEvent<Shift>)` variant.
 pub type ShiftEvent = CrudEvent<Shift>;
 
-// <<< CUSTOM
-// END CUSTOM
 
 use backbone_messaging::{CrudEventPublisher, NoOpCrudEventPublisher};
 use std::sync::Arc;

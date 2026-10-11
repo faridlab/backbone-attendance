@@ -16,9 +16,5 @@ pub type OvertimeRequestValidator = EntityValidator<OvertimeRequest>;
 pub fn overtime_request_validator() -> OvertimeRequestValidator {
     EntityValidator::new()
         .rule(RequiredString::new("reason", |e: &OvertimeRequest| &e.reason))
-    // <<< CUSTOM RULES
-    // END CUSTOM RULES
 }
 
-// <<< CUSTOM
-// END CUSTOM

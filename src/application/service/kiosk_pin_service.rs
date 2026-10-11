@@ -32,5 +32,3 @@ pub type KioskPinService = GenericCrudService<
     KioskPinRepository,
 >;
 
-// <<< CUSTOM
-// END CUSTOM

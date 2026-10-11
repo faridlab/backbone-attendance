@@ -18,5 +18,3 @@ use crate::domain::entity::RosterEntry;
 /// service. `PermitAllPolicy` is the safe default until then.
 pub type RosterEntryDomainPolicy = PermitAllPolicy<RosterEntry>;
 
-// <<< CUSTOM
-// END CUSTOM

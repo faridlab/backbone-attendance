@@ -17,9 +17,5 @@ pub fn kiosk_pin_validator() -> KioskPinValidator {
     EntityValidator::new()
         .rule(RequiredString::new("badge_code", |e: &KioskPin| &e.badge_code))
         .rule(RequiredString::new("pin_hash", |e: &KioskPin| &e.pin_hash))
-    // <<< CUSTOM RULES
-    // END CUSTOM RULES
 }
 
-// <<< CUSTOM
-// END CUSTOM

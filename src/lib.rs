@@ -24,8 +24,6 @@ pub mod application;
 pub mod presentation;
 pub mod seeders;
 pub mod exports;
-// <<< CUSTOM MODULES
-// END CUSTOM
 
 // The module's extension (hand-written; ADR-0031).
 #[path = "lib.ext.rs"]
@@ -83,8 +81,6 @@ pub struct AttendanceModule {
     pub(crate) shift_service: Arc<ShiftService>,
     /// The module's extension state (`lib.ext.rs`); its fields read through `Deref`.
     pub(crate) ext: ModuleExt,
-    // <<< CUSTOM FIELDS
-    // END CUSTOM
 }
 
 impl std::ops::Deref for AttendanceModule {
@@ -194,8 +190,6 @@ impl AttendanceModule {
             .merge(create_shift_read_routes(self.shift_service.clone()))
     }
 
-    // <<< CUSTOM METHODS
-    // END CUSTOM
 }
 
 /// Builder for AttendanceModule
@@ -203,8 +197,6 @@ pub struct AttendanceModuleBuilder {
     db_pool: Option<PgPool>,
     /// The builder's extension state (`lib.ext.rs`); its fields read through `Deref`.
     ext: ModuleBuilderExt,
-    // <<< CUSTOM BUILDER FIELDS
-    // END CUSTOM
 }
 
 impl std::ops::Deref for AttendanceModuleBuilder {
@@ -226,8 +218,6 @@ impl AttendanceModuleBuilder {
         Self {
             db_pool: None,
             ext: Default::default(),
-            // <<< CUSTOM BUILDER DEFAULTS
-            // END CUSTOM
         }
     }
 
@@ -237,8 +227,6 @@ impl AttendanceModuleBuilder {
         self
     }
 
-    // <<< CUSTOM - custom builder methods
-    // END CUSTOM
 
     /// Build the module with configured dependencies
     pub fn build(self) -> anyhow::Result<AttendanceModule> {
@@ -277,8 +265,6 @@ impl AttendanceModuleBuilder {
         let shift_repository = Arc::new(ShiftRepository::new(db_pool.clone()));
         let shift_service = Arc::new(ShiftService::with_repository(shift_repository.clone()));
 
-        // <<< CUSTOM
-        // END CUSTOM
 
         // The extension builds its own state from what the generated build made.
         let ext = self.ext.build(&ModuleParts {
@@ -311,8 +297,6 @@ impl AttendanceModuleBuilder {
             roster_entry_service,
             shift_service,
             ext,
-            // <<< CUSTOM
-            // END CUSTOM
         })
     }
 }
