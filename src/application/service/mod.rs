@@ -25,6 +25,14 @@ pub use kiosk_pin_service::KioskPinService;
 pub use overtime_request_service::OvertimeRequestService;
 pub use roster_entry_service::RosterEntryService;
 pub use shift_service::ShiftService;
+pub use attendance_service::AttendanceRowRules;
+pub use attendance_clock_service::AttendanceClockRowRules;
+pub use attendance_correction_service::AttendanceCorrectionRowRules;
+pub use attendance_session_service::AttendanceSessionRowRules;
+pub use kiosk_pin_service::KioskPinRowRules;
+pub use overtime_request_service::OvertimeRequestRowRules;
+pub use roster_entry_service::RosterEntryRowRules;
+pub use shift_service::ShiftRowRules;
 
 // This directory's extension (hand-written; ADR-0031).
 include!("mod.ext.rs");

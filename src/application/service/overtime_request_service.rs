@@ -32,3 +32,49 @@ pub type OvertimeRequestService = GenericCrudService<
     OvertimeRequestRepository,
 >;
 
+/// The rules the schema declares for OvertimeRequest, checked against the row a create or update
+/// would store. The generated build attaches it to [`OvertimeRequestService`]. A refusing rule's
+/// break answers 422; a rule in shadow is logged under `backbone::write_guard` and the
+/// write goes ahead.
+pub struct OvertimeRequestRowRules;
+
+#[async_trait::async_trait]
+impl backbone_core::write_guard::WriteGuard<OvertimeRequest> for OvertimeRequestRowRules {
+    async fn check(
+        &self,
+        ctx: &backbone_core::write_guard::WriteCtx<'_, OvertimeRequest>,
+    ) -> backbone_core::write_guard::GuardOutcome {
+        use backbone_core::row_rule as r;
+        use backbone_core::violation::Violation;
+        use backbone_core::write_guard::{GuardOutcome, WriteKind};
+        let (create, update) = (ctx.kind == WriteKind::Create, ctx.kind == WriteKind::Update);
+        let Some(after) = ctx.after.filter(|_| create || update) else {
+            return GuardOutcome::allow();
+        };
+        let Ok(row) = serde_json::to_value(after) else {
+            return GuardOutcome::allow();
+        };
+        let row = &row;
+        let old = ctx.before.and_then(|b| serde_json::to_value(b).ok());
+        let mut shadow = Vec::new();
+        let mut refuse = Vec::new();
+        // `employee_id_required` (@required on OvertimeRequest.employee_id)
+        if (create || (update && r::changed(old.as_ref(), row, &["employee_id"]))) && !r::holds(&r::and(r::is_not_null(r::field(row, "employee_id")), r::not(r::is_empty(r::trim(r::field(row, "employee_id")))))) {
+            refuse.push(Violation::new("employee_id", "required", "employee_id is required"));
+        }
+        // `hours_planned_positive` (@positive on OvertimeRequest.hours_planned)
+        if (create || (update && r::changed(old.as_ref(), row, &["hours_planned"]))) && !r::holds(&r::gt(r::field(row, "hours_planned"), r::Val::Num(0.0_f64))) {
+            shadow.push(Violation::new("hours_planned", "positive", "hours_planned must be positive"));
+        }
+        // `reason_required` (@required on OvertimeRequest.reason)
+        if (create || (update && r::changed(old.as_ref(), row, &["reason"]))) && !r::holds(&r::and(r::is_not_null(r::field(row, "reason")), r::not(r::is_empty(r::trim(r::field(row, "reason")))))) {
+            refuse.push(Violation::new("reason", "required", "reason is required"));
+        }
+        // `reason_max_length` (@length(max=1000) on OvertimeRequest.reason)
+        if (create || (update && r::changed(old.as_ref(), row, &["reason"]))) && !r::holds(&r::le(r::length(r::field(row, "reason")), r::Val::Num(1000.0_f64))) {
+            shadow.push(Violation::new("reason", "max_length", "reason must be at most 1000 characters").with_param("max", 1000_i64));
+        }
+        GuardOutcome { refuse, shadow }
+    }
+}
+

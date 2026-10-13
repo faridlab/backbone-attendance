@@ -32,3 +32,49 @@ pub type AttendanceCorrectionService = GenericCrudService<
     AttendanceCorrectionRepository,
 >;
 
+/// The rules the schema declares for AttendanceCorrection, checked against the row a create or update
+/// would store. The generated build attaches it to [`AttendanceCorrectionService`]. A refusing rule's
+/// break answers 422; a rule in shadow is logged under `backbone::write_guard` and the
+/// write goes ahead.
+pub struct AttendanceCorrectionRowRules;
+
+#[async_trait::async_trait]
+impl backbone_core::write_guard::WriteGuard<AttendanceCorrection> for AttendanceCorrectionRowRules {
+    async fn check(
+        &self,
+        ctx: &backbone_core::write_guard::WriteCtx<'_, AttendanceCorrection>,
+    ) -> backbone_core::write_guard::GuardOutcome {
+        use backbone_core::row_rule as r;
+        use backbone_core::violation::Violation;
+        use backbone_core::write_guard::{GuardOutcome, WriteKind};
+        let (create, update) = (ctx.kind == WriteKind::Create, ctx.kind == WriteKind::Update);
+        let Some(after) = ctx.after.filter(|_| create || update) else {
+            return GuardOutcome::allow();
+        };
+        let Ok(row) = serde_json::to_value(after) else {
+            return GuardOutcome::allow();
+        };
+        let row = &row;
+        let old = ctx.before.and_then(|b| serde_json::to_value(b).ok());
+        let mut shadow = Vec::new();
+        let mut refuse = Vec::new();
+        // `session_id_required` (@required on AttendanceCorrection.session_id)
+        if (create || (update && r::changed(old.as_ref(), row, &["session_id"]))) && !r::holds(&r::and(r::is_not_null(r::field(row, "session_id")), r::not(r::is_empty(r::trim(r::field(row, "session_id")))))) {
+            refuse.push(Violation::new("session_id", "required", "session_id is required"));
+        }
+        // `employee_id_required` (@required on AttendanceCorrection.employee_id)
+        if (create || (update && r::changed(old.as_ref(), row, &["employee_id"]))) && !r::holds(&r::and(r::is_not_null(r::field(row, "employee_id")), r::not(r::is_empty(r::trim(r::field(row, "employee_id")))))) {
+            refuse.push(Violation::new("employee_id", "required", "employee_id is required"));
+        }
+        // `reason_required` (@required on AttendanceCorrection.reason)
+        if (create || (update && r::changed(old.as_ref(), row, &["reason"]))) && !r::holds(&r::and(r::is_not_null(r::field(row, "reason")), r::not(r::is_empty(r::trim(r::field(row, "reason")))))) {
+            refuse.push(Violation::new("reason", "required", "reason is required"));
+        }
+        // `reason_max_length` (@length(max=500) on AttendanceCorrection.reason)
+        if (create || (update && r::changed(old.as_ref(), row, &["reason"]))) && !r::holds(&r::le(r::length(r::field(row, "reason")), r::Val::Num(500.0_f64))) {
+            shadow.push(Violation::new("reason", "max_length", "reason must be at most 500 characters").with_param("max", 500_i64));
+        }
+        GuardOutcome { refuse, shadow }
+    }
+}
+

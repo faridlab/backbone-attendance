@@ -32,3 +32,53 @@ pub type KioskPinService = GenericCrudService<
     KioskPinRepository,
 >;
 
+/// The rules the schema declares for KioskPin, checked against the row a create or update
+/// would store. The generated build attaches it to [`KioskPinService`]. A refusing rule's
+/// break answers 422; a rule in shadow is logged under `backbone::write_guard` and the
+/// write goes ahead.
+pub struct KioskPinRowRules;
+
+#[async_trait::async_trait]
+impl backbone_core::write_guard::WriteGuard<KioskPin> for KioskPinRowRules {
+    async fn check(
+        &self,
+        ctx: &backbone_core::write_guard::WriteCtx<'_, KioskPin>,
+    ) -> backbone_core::write_guard::GuardOutcome {
+        use backbone_core::row_rule as r;
+        use backbone_core::violation::Violation;
+        use backbone_core::write_guard::{GuardOutcome, WriteKind};
+        let (create, update) = (ctx.kind == WriteKind::Create, ctx.kind == WriteKind::Update);
+        let Some(after) = ctx.after.filter(|_| create || update) else {
+            return GuardOutcome::allow();
+        };
+        let Ok(row) = serde_json::to_value(after) else {
+            return GuardOutcome::allow();
+        };
+        let row = &row;
+        let old = ctx.before.and_then(|b| serde_json::to_value(b).ok());
+        let mut shadow = Vec::new();
+        let mut refuse = Vec::new();
+        // `employee_id_required` (@required on KioskPin.employee_id)
+        if (create || (update && r::changed(old.as_ref(), row, &["employee_id"]))) && !r::holds(&r::and(r::is_not_null(r::field(row, "employee_id")), r::not(r::is_empty(r::trim(r::field(row, "employee_id")))))) {
+            refuse.push(Violation::new("employee_id", "required", "employee_id is required"));
+        }
+        // `badge_code_required` (@required on KioskPin.badge_code)
+        if (create || (update && r::changed(old.as_ref(), row, &["badge_code"]))) && !r::holds(&r::and(r::is_not_null(r::field(row, "badge_code")), r::not(r::is_empty(r::trim(r::field(row, "badge_code")))))) {
+            refuse.push(Violation::new("badge_code", "required", "badge_code is required"));
+        }
+        // `badge_code_max_length` (@length(max=64) on KioskPin.badge_code)
+        if (create || (update && r::changed(old.as_ref(), row, &["badge_code"]))) && !r::holds(&r::le(r::length(r::field(row, "badge_code")), r::Val::Num(64.0_f64))) {
+            shadow.push(Violation::new("badge_code", "max_length", "badge_code must be at most 64 characters").with_param("max", 64_i64));
+        }
+        // `pin_hash_required` (@required on KioskPin.pin_hash)
+        if (create || (update && r::changed(old.as_ref(), row, &["pin_hash"]))) && !r::holds(&r::and(r::is_not_null(r::field(row, "pin_hash")), r::not(r::is_empty(r::trim(r::field(row, "pin_hash")))))) {
+            refuse.push(Violation::new("pin_hash", "required", "pin_hash is required"));
+        }
+        // `pin_hash_max_length` (@length(max=255) on KioskPin.pin_hash)
+        if (create || (update && r::changed(old.as_ref(), row, &["pin_hash"]))) && !r::holds(&r::le(r::length(r::field(row, "pin_hash")), r::Val::Num(255.0_f64))) {
+            shadow.push(Violation::new("pin_hash", "max_length", "pin_hash must be at most 255 characters").with_param("max", 255_i64));
+        }
+        GuardOutcome { refuse, shadow }
+    }
+}
+

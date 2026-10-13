@@ -235,35 +235,35 @@ impl AttendanceModuleBuilder {
 
         // Attendance service
         let attendance_repository = Arc::new(AttendanceRepository::new(db_pool.clone()));
-        let attendance_service = Arc::new(AttendanceService::with_repository(attendance_repository.clone()));
+        let attendance_service = Arc::new(AttendanceService::with_repository(attendance_repository.clone()).with_guard(Arc::new(crate::application::service::AttendanceRowRules)));
 
         // AttendanceClock service
         let attendance_clock_repository = Arc::new(AttendanceClockRepository::new(db_pool.clone()));
-        let attendance_clock_service = Arc::new(AttendanceClockService::with_repository(attendance_clock_repository.clone()));
+        let attendance_clock_service = Arc::new(AttendanceClockService::with_repository(attendance_clock_repository.clone()).with_guard(Arc::new(crate::application::service::AttendanceClockRowRules)));
 
         // AttendanceCorrection service
         let attendance_correction_repository = Arc::new(AttendanceCorrectionRepository::new(db_pool.clone()));
-        let attendance_correction_service = Arc::new(AttendanceCorrectionService::with_repository(attendance_correction_repository.clone()));
+        let attendance_correction_service = Arc::new(AttendanceCorrectionService::with_repository(attendance_correction_repository.clone()).with_guard(Arc::new(crate::application::service::AttendanceCorrectionRowRules)));
 
         // AttendanceSession service
         let attendance_session_repository = Arc::new(AttendanceSessionRepository::new(db_pool.clone()));
-        let attendance_session_service = Arc::new(AttendanceSessionService::with_repository(attendance_session_repository.clone()));
+        let attendance_session_service = Arc::new(AttendanceSessionService::with_repository(attendance_session_repository.clone()).with_guard(Arc::new(crate::application::service::AttendanceSessionRowRules)));
 
         // KioskPin service
         let kiosk_pin_repository = Arc::new(KioskPinRepository::new(db_pool.clone()));
-        let kiosk_pin_service = Arc::new(KioskPinService::with_repository(kiosk_pin_repository.clone()));
+        let kiosk_pin_service = Arc::new(KioskPinService::with_repository(kiosk_pin_repository.clone()).with_guard(Arc::new(crate::application::service::KioskPinRowRules)));
 
         // OvertimeRequest service
         let overtime_request_repository = Arc::new(OvertimeRequestRepository::new(db_pool.clone()));
-        let overtime_request_service = Arc::new(OvertimeRequestService::with_repository(overtime_request_repository.clone()));
+        let overtime_request_service = Arc::new(OvertimeRequestService::with_repository(overtime_request_repository.clone()).with_guard(Arc::new(crate::application::service::OvertimeRequestRowRules)));
 
         // RosterEntry service
         let roster_entry_repository = Arc::new(RosterEntryRepository::new(db_pool.clone()));
-        let roster_entry_service = Arc::new(RosterEntryService::with_repository(roster_entry_repository.clone()));
+        let roster_entry_service = Arc::new(RosterEntryService::with_repository(roster_entry_repository.clone()).with_guard(Arc::new(crate::application::service::RosterEntryRowRules)));
 
         // Shift service
         let shift_repository = Arc::new(ShiftRepository::new(db_pool.clone()));
-        let shift_service = Arc::new(ShiftService::with_repository(shift_repository.clone()));
+        let shift_service = Arc::new(ShiftService::with_repository(shift_repository.clone()).with_guard(Arc::new(crate::application::service::ShiftRowRules)));
 
 
         // The extension builds its own state from what the generated build made.
