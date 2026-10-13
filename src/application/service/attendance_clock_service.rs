@@ -56,7 +56,7 @@ impl backbone_core::write_guard::WriteGuard<AttendanceClock> for AttendanceClock
         };
         let row = &row;
         let old = ctx.before.and_then(|b| serde_json::to_value(b).ok());
-        let mut shadow = Vec::new();
+        let shadow = Vec::new();
         let mut refuse = Vec::new();
         // `session_id_required` (@required on AttendanceClock.session_id)
         if (create || (update && r::changed(old.as_ref(), row, &["session_id"]))) && !r::holds(&r::and(r::is_not_null(r::field(row, "session_id")), r::not(r::is_empty(r::trim(r::field(row, "session_id")))))) {
@@ -68,7 +68,7 @@ impl backbone_core::write_guard::WriteGuard<AttendanceClock> for AttendanceClock
         }
         // `device_ref_max_length` (@length(max=80) on AttendanceClock.device_ref)
         if (create || (update && r::changed(old.as_ref(), row, &["device_ref"]))) && !r::holds(&r::le(r::length(r::field(row, "device_ref")), r::Val::Num(80.0_f64))) {
-            shadow.push(Violation::new("device_ref", "max_length", "device_ref must be at most 80 characters").with_param("max", 80_i64));
+            refuse.push(Violation::new("device_ref", "max_length", "device_ref must be at most 80 characters").with_param("max", 80_i64));
         }
         GuardOutcome { refuse, shadow }
     }

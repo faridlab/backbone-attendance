@@ -56,7 +56,7 @@ impl backbone_core::write_guard::WriteGuard<OvertimeRequest> for OvertimeRequest
         };
         let row = &row;
         let old = ctx.before.and_then(|b| serde_json::to_value(b).ok());
-        let mut shadow = Vec::new();
+        let shadow = Vec::new();
         let mut refuse = Vec::new();
         // `employee_id_required` (@required on OvertimeRequest.employee_id)
         if (create || (update && r::changed(old.as_ref(), row, &["employee_id"]))) && !r::holds(&r::and(r::is_not_null(r::field(row, "employee_id")), r::not(r::is_empty(r::trim(r::field(row, "employee_id")))))) {
@@ -64,7 +64,7 @@ impl backbone_core::write_guard::WriteGuard<OvertimeRequest> for OvertimeRequest
         }
         // `hours_planned_positive` (@positive on OvertimeRequest.hours_planned)
         if (create || (update && r::changed(old.as_ref(), row, &["hours_planned"]))) && !r::holds(&r::gt(r::field(row, "hours_planned"), r::Val::Num(0.0_f64))) {
-            shadow.push(Violation::new("hours_planned", "positive", "hours_planned must be positive"));
+            refuse.push(Violation::new("hours_planned", "positive", "hours_planned must be positive"));
         }
         // `reason_required` (@required on OvertimeRequest.reason)
         if (create || (update && r::changed(old.as_ref(), row, &["reason"]))) && !r::holds(&r::and(r::is_not_null(r::field(row, "reason")), r::not(r::is_empty(r::trim(r::field(row, "reason")))))) {
@@ -72,7 +72,7 @@ impl backbone_core::write_guard::WriteGuard<OvertimeRequest> for OvertimeRequest
         }
         // `reason_max_length` (@length(max=1000) on OvertimeRequest.reason)
         if (create || (update && r::changed(old.as_ref(), row, &["reason"]))) && !r::holds(&r::le(r::length(r::field(row, "reason")), r::Val::Num(1000.0_f64))) {
-            shadow.push(Violation::new("reason", "max_length", "reason must be at most 1000 characters").with_param("max", 1000_i64));
+            refuse.push(Violation::new("reason", "max_length", "reason must be at most 1000 characters").with_param("max", 1000_i64));
         }
         GuardOutcome { refuse, shadow }
     }

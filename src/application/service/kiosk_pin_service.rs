@@ -56,7 +56,7 @@ impl backbone_core::write_guard::WriteGuard<KioskPin> for KioskPinRowRules {
         };
         let row = &row;
         let old = ctx.before.and_then(|b| serde_json::to_value(b).ok());
-        let mut shadow = Vec::new();
+        let shadow = Vec::new();
         let mut refuse = Vec::new();
         // `employee_id_required` (@required on KioskPin.employee_id)
         if (create || (update && r::changed(old.as_ref(), row, &["employee_id"]))) && !r::holds(&r::and(r::is_not_null(r::field(row, "employee_id")), r::not(r::is_empty(r::trim(r::field(row, "employee_id")))))) {
@@ -68,7 +68,7 @@ impl backbone_core::write_guard::WriteGuard<KioskPin> for KioskPinRowRules {
         }
         // `badge_code_max_length` (@length(max=64) on KioskPin.badge_code)
         if (create || (update && r::changed(old.as_ref(), row, &["badge_code"]))) && !r::holds(&r::le(r::length(r::field(row, "badge_code")), r::Val::Num(64.0_f64))) {
-            shadow.push(Violation::new("badge_code", "max_length", "badge_code must be at most 64 characters").with_param("max", 64_i64));
+            refuse.push(Violation::new("badge_code", "max_length", "badge_code must be at most 64 characters").with_param("max", 64_i64));
         }
         // `pin_hash_required` (@required on KioskPin.pin_hash)
         if (create || (update && r::changed(old.as_ref(), row, &["pin_hash"]))) && !r::holds(&r::and(r::is_not_null(r::field(row, "pin_hash")), r::not(r::is_empty(r::trim(r::field(row, "pin_hash")))))) {
@@ -76,7 +76,7 @@ impl backbone_core::write_guard::WriteGuard<KioskPin> for KioskPinRowRules {
         }
         // `pin_hash_max_length` (@length(max=255) on KioskPin.pin_hash)
         if (create || (update && r::changed(old.as_ref(), row, &["pin_hash"]))) && !r::holds(&r::le(r::length(r::field(row, "pin_hash")), r::Val::Num(255.0_f64))) {
-            shadow.push(Violation::new("pin_hash", "max_length", "pin_hash must be at most 255 characters").with_param("max", 255_i64));
+            refuse.push(Violation::new("pin_hash", "max_length", "pin_hash must be at most 255 characters").with_param("max", 255_i64));
         }
         GuardOutcome { refuse, shadow }
     }
