@@ -253,6 +253,9 @@ impl backbone_orm::EntityRepoMeta for AttendanceCorrection {
     fn search_fields() -> &'static [&'static str] {
         &["reason"]
     }
+    fn relations() -> &'static [(&'static str, &'static str, &'static str)] {
+        &[("session", "attendance_sessions", "sessionId")]
+    }
 }
 
 /// Builder for AttendanceCorrection entity
