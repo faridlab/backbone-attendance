@@ -34,5 +34,69 @@ pub use overtime_request_service::OvertimeRequestRowRules;
 pub use roster_entry_service::RosterEntryRowRules;
 pub use shift_service::ShiftRowRules;
 
+/// A `AttendanceService` over `repository` with its write guard attached: the way to build it, so its writes are
+/// served only with the rules the schema declares.
+pub fn build_attendance_service(
+    repository: std::sync::Arc<crate::infrastructure::persistence::AttendanceRepository>,
+) -> AttendanceService {
+    AttendanceService::with_repository(repository).with_guard(std::sync::Arc::new(AttendanceRowRules))
+}
+
+/// A `AttendanceClockService` over `repository` with its write guard attached: the way to build it, so its writes are
+/// served only with the rules the schema declares.
+pub fn build_attendance_clock_service(
+    repository: std::sync::Arc<crate::infrastructure::persistence::AttendanceClockRepository>,
+) -> AttendanceClockService {
+    AttendanceClockService::with_repository(repository).with_guard(std::sync::Arc::new(AttendanceClockRowRules))
+}
+
+/// A `AttendanceCorrectionService` over `repository` with its write guard attached: the way to build it, so its writes are
+/// served only with the rules the schema declares.
+pub fn build_attendance_correction_service(
+    repository: std::sync::Arc<crate::infrastructure::persistence::AttendanceCorrectionRepository>,
+) -> AttendanceCorrectionService {
+    AttendanceCorrectionService::with_repository(repository).with_guard(std::sync::Arc::new(AttendanceCorrectionRowRules))
+}
+
+/// A `AttendanceSessionService` over `repository` with its write guard attached: the way to build it, so its writes are
+/// served only with the rules the schema declares.
+pub fn build_attendance_session_service(
+    repository: std::sync::Arc<crate::infrastructure::persistence::AttendanceSessionRepository>,
+) -> AttendanceSessionService {
+    AttendanceSessionService::with_repository(repository).with_guard(std::sync::Arc::new(AttendanceSessionRowRules))
+}
+
+/// A `KioskPinService` over `repository` with its write guard attached: the way to build it, so its writes are
+/// served only with the rules the schema declares.
+pub fn build_kiosk_pin_service(
+    repository: std::sync::Arc<crate::infrastructure::persistence::KioskPinRepository>,
+) -> KioskPinService {
+    KioskPinService::with_repository(repository).with_guard(std::sync::Arc::new(KioskPinRowRules))
+}
+
+/// A `OvertimeRequestService` over `repository` with its write guard attached: the way to build it, so its writes are
+/// served only with the rules the schema declares.
+pub fn build_overtime_request_service(
+    repository: std::sync::Arc<crate::infrastructure::persistence::OvertimeRequestRepository>,
+) -> OvertimeRequestService {
+    OvertimeRequestService::with_repository(repository).with_guard(std::sync::Arc::new(OvertimeRequestRowRules))
+}
+
+/// A `RosterEntryService` over `repository` with its write guard attached: the way to build it, so its writes are
+/// served only with the rules the schema declares.
+pub fn build_roster_entry_service(
+    repository: std::sync::Arc<crate::infrastructure::persistence::RosterEntryRepository>,
+) -> RosterEntryService {
+    RosterEntryService::with_repository(repository).with_guard(std::sync::Arc::new(RosterEntryRowRules))
+}
+
+/// A `ShiftService` over `repository` with its write guard attached: the way to build it, so its writes are
+/// served only with the rules the schema declares.
+pub fn build_shift_service(
+    repository: std::sync::Arc<crate::infrastructure::persistence::ShiftRepository>,
+) -> ShiftService {
+    ShiftService::with_repository(repository).with_guard(std::sync::Arc::new(ShiftRowRules))
+}
+
 // This directory's extension (hand-written; ADR-0031).
 include!("mod.ext.rs");
