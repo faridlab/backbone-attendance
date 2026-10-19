@@ -1,0 +1,30 @@
+-- Down: drop the declared rule constraints for attendance module
+ALTER TABLE IF EXISTS attendance.shifts DROP CONSTRAINT IF EXISTS ck_shifts_code_required__required;
+ALTER TABLE IF EXISTS attendance.shifts DROP CONSTRAINT IF EXISTS ck_shifts_name_required__required;
+ALTER TABLE IF EXISTS attendance.roster_entries DROP CONSTRAINT IF EXISTS ck_roster_entries_employee_id_required__required;
+ALTER TABLE IF EXISTS attendance.overtime_requests DROP CONSTRAINT IF EXISTS ck_overtime_requests_reason_max_length__max_length;
+ALTER TABLE IF EXISTS attendance.overtime_requests DROP CONSTRAINT IF EXISTS ck_overtime_requests_reason_required__required;
+ALTER TABLE IF EXISTS attendance.overtime_requests DROP CONSTRAINT IF EXISTS ck_overtime_requests_hours_planned_positive__positive;
+ALTER TABLE IF EXISTS attendance.overtime_requests DROP CONSTRAINT IF EXISTS ck_overtime_requests_employee_id_required__required;
+ALTER TABLE IF EXISTS attendance.kiosk_pins DROP CONSTRAINT IF EXISTS ck_kiosk_pins_pin_hash_max_length__max_length;
+ALTER TABLE IF EXISTS attendance.kiosk_pins DROP CONSTRAINT IF EXISTS ck_kiosk_pins_pin_hash_required__required;
+ALTER TABLE IF EXISTS attendance.kiosk_pins DROP CONSTRAINT IF EXISTS ck_kiosk_pins_badge_code_max_length__max_length;
+ALTER TABLE IF EXISTS attendance.kiosk_pins DROP CONSTRAINT IF EXISTS ck_kiosk_pins_badge_code_required__required;
+ALTER TABLE IF EXISTS attendance.kiosk_pins DROP CONSTRAINT IF EXISTS ck_kiosk_pins_employee_id_required__required;
+ALTER TABLE IF EXISTS attendance.attendance_sessions DROP CONSTRAINT IF EXISTS ck_attendance_sessions_correction_reason_max_length__max_length;
+ALTER TABLE IF EXISTS attendance.attendance_sessions DROP CONSTRAINT IF EXISTS ck_attendance_sessions_employee_id_required__required;
+ALTER TABLE IF EXISTS attendance.attendance_corrections DROP CONSTRAINT IF EXISTS ck_attendance_corrections_reason_max_length__max_length;
+ALTER TABLE IF EXISTS attendance.attendance_corrections DROP CONSTRAINT IF EXISTS ck_attendance_corrections_reason_required__required;
+ALTER TABLE IF EXISTS attendance.attendance_corrections DROP CONSTRAINT IF EXISTS ck_attendance_corrections_employee_id_required__required;
+ALTER TABLE IF EXISTS attendance.attendance_corrections DROP CONSTRAINT IF EXISTS ck_attendance_corrections_session_id_required__required;
+ALTER TABLE IF EXISTS attendance.attendance_clocks DROP CONSTRAINT IF EXISTS ck_attendance_clocks_device_ref_max_length__max_length;
+ALTER TABLE IF EXISTS attendance.attendance_clocks DROP CONSTRAINT IF EXISTS ck_attendance_clocks_employee_id_required__required;
+ALTER TABLE IF EXISTS attendance.attendance_clocks DROP CONSTRAINT IF EXISTS ck_attendance_clocks_session_id_required__required;
+ALTER TABLE IF EXISTS attendance.attendances DROP CONSTRAINT IF EXISTS ck_attendances_employee_id_required__required;
+DO $$
+BEGIN
+    IF to_regclass('attendance.uq_attendances_date__unique') IS NOT NULL AND to_regclass('attendance.idx_attendances_employee_id_date') IS NULL THEN
+        ALTER INDEX attendance.uq_attendances_date__unique RENAME TO idx_attendances_employee_id_date;
+    END IF;
+END $$;
+
